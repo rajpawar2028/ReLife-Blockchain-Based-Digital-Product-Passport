@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReLife - Digital Product Passport Platform</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .hero {
+      text-align: center;
+      padding: 3.5rem 1rem 2.5rem 1rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .hero h1 {
+      font-size: 2.75rem;
+      font-weight: 800;
+      line-height: 1.2;
+      background: linear-gradient(135deg, #10b981, #38bdf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 1rem;
+    }
+    .hero p {
+      font-size: 1.15rem;
+      color: var(--text-muted);
+      margin-bottom: 2rem;
+    }
+    .hero-actions {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin: 2.5rem 0;
+    }
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--dark-border);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 800;
+      color: var(--primary);
+    }
+    .stat-label {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 0.25rem;
+    }
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.5rem;
+      margin-top: 2rem;
+    }
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--dark-border);
+      border-radius: var(--radius-md);
+      padding: 1.5rem;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .feature-card:hover {
+      transform: translateY(-3px);
+      border-color: var(--primary);
+    }
+    .feature-icon {
+      font-size: 1.75rem;
+      margin-bottom: 0.75rem;
+    }
+    .feature-card h3 {
+      font-size: 1.15rem;
+      margin-bottom: 0.5rem;
+    }
+    .feature-card p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <a href="index.html" class="logo-area">
+        <div class="logo-icon">&#9851;</div>
+        <span class="logo-text">ReLife</span>
+        <span class="logo-tag">Passport</span>
+      </a>
+
+      <nav>
+        <ul class="nav-links">
+          <li><a href="index.html" class="nav-link active">Home</a></li>
+          <li><a href="manufacturer.html" class="nav-link">Manufacturer</a></li>
+          <li><a href="owner.html" class="nav-link">Owner Dashboard</a></li>
+          <li><a href="recycler.html" class="nav-link">Recycler Portal</a></li>
+          <li><a href="product.html" class="nav-link">Verify Product</a></li>
+          <li><a href="admin.html" class="nav-link">Admin Portal</a></li>
+        </ul>
+      </nav>
+
+      <div class="wallet-section">
+        <div id="walletBadge">
+          <span class="badge badge-warning">Disconnected</span>
+        </div>
+        <button id="connectWalletBtn" class="btn btn-primary">Connect Wallet</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <main class="main-content">
+    <div class="hero">
+      <h1>Transparent, Circular Product Lifecycles on Ethereum</h1>
+      <p>
+        ReLife is a decentralized Digital Product Passport (DPP) system providing immutable origin tracking,
+        verifiable repair histories, and anti-counterfeit protection backed by Sepolia and Pinata IPFS.
+      </p>
+      <div class="hero-actions">
+        <a href="manufacturer.html" class="btn btn-primary" style="padding: 0.75rem 1.75rem;">
+          Manufacturer Portal &rarr;
+        </a>
+        <a href="product.html" class="btn btn-secondary" style="padding: 0.75rem 1.75rem;">
+          Verify a Product
+        </a>
+      </div>
+    </div>
+
+    <!-- Live Blockchain Statistics -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-value" id="statProducts">&mdash;</div>
+        <div class="stat-label">Total Passports Minted</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" id="statNetwork">Sepolia / Local</div>
+        <div class="stat-label">Network</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-value" style="color: var(--secondary);" id="statStorage">IPFS</div>
+        <div class="stat-label">Storage Architecture</div>
+      </div>
+    </div>
+
+    <!-- Core Pillars Grid -->
+    <h2 style="font-size: 1.5rem; margin-top: 2rem; text-align: center;">Circular Product Lifecycle Pillars</h2>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon">&#127981;</div>
+        <h3>1. Manufacturing & Origin</h3>
+        <p>Certified manufacturers mint passports containing immutable bills of materials, carbon metrics, and cryptographic serial numbers.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">&#128295;</div>
+        <h3>2. Verifiable Maintenance</h3>
+        <p>Approved service centers log component replacements and diagnostics directly on-chain in chronological order.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">&#128269;</div>
+        <h3>3. Consumer Verification</h3>
+        <p>Anyone can scan a QR code to audit pedigree, authenticity status, and service records without trusting centralized middlemen.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">&#9851;</div>
+        <h3>4. Circular Recycling</h3>
+        <p>Authorized recyclers record end-of-life deconstruction, permanently retiring passports to prevent counterfeit reuse.</p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <p>ReLife DPP &copy; 2026 &mdash; Built on Ethereum Sepolia, Hardhat, Ethers.js & Pinata IPFS</p>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js"></script>
+  <script src="contract-data.js"></script>
+  <script src="js/wallet.js"></script>
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      await ReLifeWallet.init();
+
+      const connectBtn = document.getElementById("connectWalletBtn");
+      const walletBadge = document.getElementById("walletBadge");
+
+      function refreshBadge() {
+        if (ReLifeWallet.account) {
+          const a = ReLifeWallet.account;
+          walletBadge.innerHTML = `<span class="badge badge-info">${a.slice(0,6)}...${a.slice(-4)}</span>`;
+        }
+      }
+
+      refreshBadge();
+
+      connectBtn.addEventListener("click", async () => {
+        try {
+          await ReLifeWallet.connect();
+          refreshBadge();
+        } catch(e) {
+          alert("Connect error: " + e.message);
+        }
+      });
+
+      // Load total products stat
+      try {
+        const contract = ReLifeWallet.getReadOnlyContract();
+        if (contract) {
+          const total = await contract.getTotalProducts();
+          document.getElementById("statProducts").innerText = total.toString();
+        }
+      } catch (err) {
+        console.warn("Stats read note:", err.message);
+      }
+    });
+  </script>
+</body>
+</html>
+

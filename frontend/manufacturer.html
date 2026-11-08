@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReLife - Manufacturer Portal</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <a href="index.html" class="logo-area">
+        <div class="logo-icon">&#9851;</div>
+        <span class="logo-text">ReLife</span>
+        <span class="logo-tag">Passport</span>
+      </a>
+
+      <nav>
+        <ul class="nav-links">
+          <li><a href="index.html" class="nav-link">Home</a></li>
+          <li><a href="manufacturer.html" class="nav-link active">Manufacturer</a></li>
+          <li><a href="owner.html" class="nav-link">Owner Dashboard</a></li>
+          <li><a href="recycler.html" class="nav-link">Recycler Portal</a></li>
+          <li><a href="product.html" class="nav-link">Verify Product</a></li>
+          <li><a href="admin.html" class="nav-link">Admin Portal</a></li>
+        </ul>
+      </nav>
+
+      <div class="wallet-section">
+        <div id="walletBadge">
+          <span class="badge badge-warning">Disconnected</span>
+        </div>
+        <button id="connectWalletBtn" class="btn btn-primary">Connect Wallet</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">Manufacturer Portal</h1>
+      <p class="page-subtitle">Mint tamper-proof Digital Product Passports with verified supply chain metadata on Sepolia.</p>
+    </div>
+
+    <!-- State 1: Wallet Disconnected Prompt -->
+    <div id="authSection" class="card" style="text-align: center; padding: 3rem 1.5rem;">
+      <h2 style="margin-bottom: 0.75rem;">Connect Your Wallet to Continue</h2>
+      <p style="color: var(--text-muted); max-width: 500px; margin: 0 auto 1.5rem auto;">
+        To register physical products, please connect the authorized manufacturer Ethereum wallet approved by the ReLife Admin.
+      </p>
+      <button onclick="document.getElementById('connectWalletBtn').click()" class="btn btn-primary" style="padding: 0.75rem 2rem;">
+        Connect MetaMask
+      </button>
+    </div>
+
+    <!-- State 2: Unauthorized Wallet Alert -->
+    <div id="unauthorizedAlert" class="alert alert-danger" style="display: none;">
+      <div>
+        <strong>Access Denied:</strong> Your connected wallet (<code id="unauthorizedAddress">0x...</code>) does not hold the <code>MANUFACTURER_ROLE</code> on-chain.
+        <br>
+        Please switch to an authorized manufacturer wallet in MetaMask, or contact the contract admin to be onboarded.
+      </div>
+    </div>
+
+    <!-- Transaction Status Banner -->
+    <div id="txStatusCard" class="alert" style="display: none;">
+      <span id="txStatusMessage"></span>
+    </div>
+
+    <!-- State 3: Product Passport Registration Form -->
+    <div id="registrationCard" class="card" style="display: none;">
+      <div class="card-header">
+        <h2 class="card-title">Register New Product Passport</h2>
+        <span class="badge badge-success">Authorized Manufacturer</span>
+      </div>
+
+      <form id="productForm">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="prodName">Product Name <span class="required">*</span></label>
+            <input type="text" id="prodName" placeholder="e.g. EcoPhone 15 Pro" required>
+          </div>
+
+          <div class="form-group">
+            <label for="prodBrand">Brand Name <span class="required">*</span></label>
+            <input type="text" id="prodBrand" placeholder="e.g. CircuTech" required>
+          </div>
+
+          <div class="form-group">
+            <label for="prodModel">Model Identifier <span class="required">*</span></label>
+            <input type="text" id="prodModel" placeholder="e.g. CT-EP15-2026" required>
+          </div>
+
+          <div class="form-group">
+            <label for="prodSerial">Physical Serial Number <span class="required">*</span></label>
+            <input type="text" id="prodSerial" placeholder="e.g. SN-CIRC-2026-0001" required>
+            <span class="input-hint">Must be globally unique. Reverts if duplicate.</span>
+          </div>
+
+          <div class="form-group">
+            <label for="prodCategory">Product Category</label>
+            <select id="prodCategory">
+              <option value="Electronics & Smartphones">Electronics & Smartphones</option>
+              <option value="Computers & Laptops">Computers & Laptops</option>
+              <option value="Appliances">Home Appliances</option>
+              <option value="Automotive & Batteries">Automotive & Batteries</option>
+              <option value="Apparel & Textiles">Apparel & Textiles</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label for="prodCarbon">Carbon Footprint (kg CO₂e)</label>
+            <input type="number" step="0.1" id="prodCarbon" placeholder="e.g. 38.5">
+          </div>
+
+          <div class="form-group">
+            <label for="prodOrigin">Manufacturing Country</label>
+            <input type="text" id="prodOrigin" placeholder="e.g. Germany">
+          </div>
+
+          <div class="form-group">
+            <label for="prodRecyclability">Recyclability Score (0-100%)</label>
+            <input type="number" min="0" max="100" id="prodRecyclability" placeholder="e.g. 92">
+          </div>
+
+          <div class="form-group full-width">
+            <label for="description">Product Description <span class="required">*</span></label>
+            <textarea id="description" rows="3" placeholder="Detailed product specifications, circular lifecycle instructions, and repairability summary" required></textarea>
+          </div>
+
+          <div class="form-group full-width">
+            <label for="prodMaterials">Bill of Materials (comma-separated)</label>
+            <input type="text" id="prodMaterials" placeholder="e.g. 100% Recycled Aluminum, Cobalt-Free Battery, Fairtrade Tin">
+          </div>
+
+          <div class="form-group full-width">
+            <label for="prodFile">Product Photo or Technical Document (Optional)</label>
+            <input type="file" id="prodFile" accept="image/*,application/pdf">
+            <span class="input-hint">Uploaded securely to Pinata IPFS; linked in decentralized passport metadata.</span>
+          </div>
+        </div>
+
+        <div style="margin-top: 1.75rem; display: flex; align-items: center; gap: 1rem;">
+          <button type="submit" id="submitProductBtn" class="btn btn-primary" style="padding: 0.75rem 2rem;">
+            <span id="submitSpinner" class="spinner" style="display: none;"></span>
+            Mint Product Passport
+          </button>
+          <span class="input-hint">Requires a MetaMask signature to commit to Sepolia testnet.</span>
+        </div>
+      </form>
+    </div>
+
+    <!-- Manufacturer Registered Passports Table -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">Registered Passports by Connected Manufacturer</h2>
+      </div>
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Serial Number</th>
+              <th>Product</th>
+              <th>Registered Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="productsTableBody">
+            <tr id="noProductsRow">
+              <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                No products registered yet under this manufacturer account.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <p>ReLife DPP &copy; 2026 &mdash; Built on Ethereum Sepolia, Hardhat, Ethers.js & Pinata IPFS</p>
+  </footer>
+
+  <!-- Ethers.js v6 (from CDN with automatic fallback) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js"></script>
+  <!-- Contract address and ABI auto-exported from Hardhat deploy -->
+  <script src="contract-data.js"></script>
+  <!-- Shared Wallet Manager -->
+  <script src="js/wallet.js"></script>
+  <!-- Manufacturer Page Controller -->
+  <script src="js/manufacturer.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReLife - Product Owner Dashboard</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .owner-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+      margin-top: 1.5rem;
+    }
+    .owner-card {
+      background: var(--bg-card);
+      border: 1px solid var(--dark-border);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.2s, border-color 0.2s;
+    }
+    .owner-card:hover {
+      border-color: var(--primary);
+    }
+    .transfer-form {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px dashed var(--dark-border);
+      border-radius: var(--radius-sm);
+      padding: 1rem;
+      margin-top: 1rem;
+      display: none;
+    }
+    .history-list {
+      margin-top: 0.75rem;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding-top: 0.75rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <a href="index.html" class="logo-area">
+        <div class="logo-icon">&#9851;</div>
+        <span class="logo-text">ReLife</span>
+        <span class="logo-tag">Passport</span>
+      </a>
+
+      <nav>
+        <ul class="nav-links">
+          <li><a href="index.html" class="nav-link">Home</a></li>
+          <li><a href="manufacturer.html" class="nav-link">Manufacturer</a></li>
+          <li><a href="owner.html" class="nav-link active">Owner Dashboard</a></li>
+          <li><a href="recycler.html" class="nav-link">Recycler Portal</a></li>
+          <li><a href="product.html" class="nav-link">Verify Product</a></li>
+          <li><a href="admin.html" class="nav-link">Admin Portal</a></li>
+        </ul>
+      </nav>
+
+      <div class="wallet-section">
+        <div id="walletBadge">
+          <span class="badge badge-warning">Disconnected</span>
+        </div>
+        <button id="connectWalletBtn" class="btn btn-primary">Connect Wallet</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">Product Owner Dashboard</h1>
+      <p class="page-subtitle">Manage authentic products registered in your wallet, view active warranties, and transfer ownership on-chain.</p>
+    </div>
+
+    <!-- State 1: Wallet Disconnected -->
+    <div id="authSection" class="card" style="text-align: center; padding: 3rem 1.5rem;">
+      <h2 style="margin-bottom: 0.75rem;">Connect Wallet to View Your Passports</h2>
+      <p style="color: var(--text-muted); max-width: 500px; margin: 0 auto 1.5rem auto;">
+        Connect your MetaMask wallet to view products you authentically own on the Ethereum blockchain.
+      </p>
+      <button onclick="document.getElementById('connectWalletBtn').click()" class="btn btn-primary" style="padding: 0.75rem 2rem;">
+        Connect MetaMask
+      </button>
+    </div>
+
+    <!-- Status Alert Card -->
+    <div id="txStatusCard" class="alert" style="display: none;">
+      <span id="txStatusMessage"></span>
+    </div>
+
+    <!-- State 2: Products List -->
+    <div id="dashboardSection" style="display: none;">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div>
+          <h2>Owned Products (<span id="ownedCount">0</span>)</h2>
+          <span style="font-size: 0.85rem; color: var(--text-muted);">Verified cryptographically against current ownership records.</span>
+        </div>
+        <button id="refreshBtn" class="btn btn-secondary">&#8635; Refresh Assets</button>
+      </div>
+
+      <div id="emptyNotice" class="card" style="display: none; text-align: center; margin-top: 1.5rem; padding: 2.5rem;">
+        <p style="color: var(--text-muted);">No products currently owned by this wallet address.</p>
+      </div>
+
+      <div id="productsGrid" class="owner-grid"></div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <p>ReLife DPP &copy; 2026 &mdash; Built on Ethereum Sepolia, Hardhat, Ethers.js & Pinata IPFS</p>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js"></script>
+  <script src="contract-data.js"></script>
+  <script src="js/wallet.js"></script>
+  <script src="js/owner.js"></script>
+</body>
+</html>
+

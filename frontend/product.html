@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReLife - Product Passport Verification</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .verify-search-box {
+      background: var(--bg-card);
+      border: 1px solid var(--dark-border);
+      border-radius: var(--radius-lg);
+      padding: 1.75rem;
+      margin-bottom: 2rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    .search-inputs {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .search-inputs input {
+      flex: 1;
+      min-width: 220px;
+    }
+    .scanner-wrapper {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px dashed var(--dark-border);
+      border-radius: var(--radius-md);
+      padding: 1rem;
+      margin-top: 1rem;
+      display: none;
+      text-align: center;
+    }
+    #qr-reader {
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    .passport-card {
+      background: var(--bg-card);
+      border: 1px solid var(--dark-border);
+      border-radius: var(--radius-lg);
+      padding: 2rem;
+      margin-bottom: 2rem;
+      display: none;
+    }
+    .passport-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1.5rem;
+      flex-wrap: wrap;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      margin-bottom: 1.5rem;
+    }
+    .passport-title {
+      font-size: 1.75rem;
+      font-weight: 800;
+    }
+    .passport-brand {
+      color: var(--secondary);
+      font-size: 1rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .qr-display-card {
+      background: #ffffff;
+      padding: 1rem;
+      border-radius: var(--radius-md);
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      color: #0b1120;
+    }
+    #qrcodeContainer {
+      width: 140px;
+      height: 140px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .details-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2rem;
+    }
+    .detail-item {
+      background: rgba(15, 23, 42, 0.6);
+      padding: 1rem;
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .detail-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.25rem;
+    }
+    .detail-value {
+      font-size: 0.95rem;
+      font-weight: 600;
+      word-break: break-all;
+    }
+    .timeline {
+      position: relative;
+      padding-left: 1.5rem;
+      border-left: 2px solid var(--primary);
+      margin-top: 1rem;
+    }
+    .timeline-item {
+      position: relative;
+      margin-bottom: 1.5rem;
+    }
+    .timeline-item::before {
+      content: "";
+      position: absolute;
+      left: -1.95rem;
+      top: 0.25rem;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--primary);
+    }
+    .timeline-date {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .timeline-type {
+      font-size: 1rem;
+      font-weight: 700;
+      margin: 0.2rem 0;
+    }
+    .timeline-desc {
+      font-size: 0.9rem;
+      color: #cbd5e1;
+    }
+    .security-notice {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+      margin-top: 2rem;
+      display: flex;
+      gap: 0.75rem;
+      align-items: flex-start;
+      font-size: 0.875rem;
+      color: #fde68a;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <a href="index.html" class="logo-area">
+        <div class="logo-icon">&#9851;</div>
+        <span class="logo-text">ReLife</span>
+        <span class="logo-tag">Passport</span>
+      </a>
+
+      <nav>
+        <ul class="nav-links">
+          <li><a href="index.html" class="nav-link">Home</a></li>
+          <li><a href="manufacturer.html" class="nav-link">Manufacturer</a></li>
+          <li><a href="owner.html" class="nav-link">Owner Dashboard</a></li>
+          <li><a href="recycler.html" class="nav-link">Recycler Portal</a></li>
+          <li><a href="product.html" class="nav-link active">Verify Product</a></li>
+          <li><a href="admin.html" class="nav-link">Admin Portal</a></li>
+        </ul>
+      </nav>
+
+      <div class="wallet-section">
+        <div id="walletBadge">
+          <span class="badge badge-warning">Disconnected</span>
+        </div>
+        <button id="connectWalletBtn" class="btn btn-primary">Connect Wallet</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">Digital Product Passport Verification</h1>
+      <p class="page-subtitle">Verify product authenticity, origin, carbon metrics, and servicing history directly from Ethereum Sepolia.</p>
+    </div>
+
+    <!-- Search & Scanner Control Box -->
+    <div class="verify-search-box">
+      <label for="productIdInput">Look Up Product Passport (by ID or Serial Number):</label>
+      <div class="search-inputs">
+        <input type="text" id="productIdInput" placeholder="Enter Product ID (e.g. 1) or Serial Number (e.g. SN-...)">
+        <button id="verifyBtn" class="btn btn-primary">Verify Passport</button>
+        <button id="toggleScannerBtn" class="btn btn-secondary">
+          &#128247; Scan QR Code
+        </button>
+      </div>
+
+      <!-- Live Camera Scanner Area -->
+      <div id="scannerWrapper" class="scanner-wrapper">
+        <div id="qr-reader"></div>
+        <button id="closeScannerBtn" class="btn btn-secondary" style="margin-top: 0.75rem;">
+          Close Scanner
+        </button>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loadingCard" class="card" style="display: none; text-align: center; padding: 2.5rem;">
+      <div class="spinner" style="width: 32px; height: 32px; margin-bottom: 1rem;"></div>
+      <p style="color: var(--text-muted);">Querying immutable smart contract on Sepolia...</p>
+    </div>
+
+    <!-- Counterfeit / Not Found Alert State -->
+    <div id="notFoundCard" class="card" style="display: none; border-color: rgba(239, 68, 68, 0.4);">
+      <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;">
+        <span class="badge badge-danger" style="font-size: 0.9rem; padding: 0.35rem 0.8rem;">
+          &#9888; NOT REGISTERED / POTENTIAL COUNTERFEIT
+        </span>
+      </div>
+      <h2 style="margin-bottom: 0.5rem; color: #f87171;">No On-Chain Passport Found</h2>
+      <p style="color: var(--text-muted); margin-bottom: 1rem;">
+        No verified Digital Product Passport exists on the Ethereum blockchain for the queried identifier:
+        <strong id="searchedIdDisplay" style="color: #fff;"></strong>.
+      </p>
+      <div class="alert alert-danger" style="margin-bottom: 0;">
+        <strong>Warning:</strong> This physical item has no record of being manufactured by an authorized entity in the ReLife registry.
+        It may be an unregistered batch, a forged serial tag, or a counterfeit.
+      </div>
+    </div>
+
+    <!-- Verified Passport Details Card -->
+    <div id="passportCard" class="passport-card">
+      <div class="passport-header">
+        <div>
+          <span id="authenticityBadge" class="badge badge-success" style="font-size: 0.85rem; padding: 0.35rem 0.75rem; margin-bottom: 0.5rem;">
+            &#10003; VERIFIED AUTHENTIC PASSPORT
+          </span>
+          <span id="recycledBadge" class="badge badge-danger" style="display: none; font-size: 0.85rem; padding: 0.35rem 0.75rem; margin-bottom: 0.5rem;">
+            &#9851; RECYCLED / DECOMMISSIONED
+          </span>
+          <h2 id="viewProdTitle" class="passport-title">EcoPhone 15 Pro</h2>
+          <div id="viewProdBrand" class="passport-brand">CircuTech &mdash; CT-EP15-2026</div>
+        </div>
+
+        <!-- Dynamic QR Code Card -->
+        <div class="qr-display-card">
+          <div id="qrcodeContainer"></div>
+          <span style="font-size: 0.7rem; font-weight: bold; text-transform: uppercase;">Digital Passport QR</span>
+        </div>
+      </div>
+
+      <!-- Core Specs Grid -->
+      <h3 style="font-size: 1.15rem; margin-bottom: 0.75rem;">Blockchain Registry Details</h3>
+      <div class="details-grid">
+        <div class="detail-item">
+          <div class="detail-label">Passport Product ID</div>
+          <div class="detail-value" id="viewProdId">#1</div>
+        </div>
+
+        <div class="detail-item">
+          <div class="detail-label">Physical Serial Number</div>
+          <div class="detail-value"><code id="viewProdSerial">SN-...</code></div>
+        </div>
+
+        <div class="detail-item">
+          <div class="detail-label">Authorized Manufacturer</div>
+          <div class="detail-value"><code id="viewProdManufacturer">0x...</code></div>
+        </div>
+
+        <div class="detail-item">
+          <div class="detail-label">Current Owner Address</div>
+          <div class="detail-value"><code id="viewProdOwner">0x...</code></div>
+        </div>
+
+        <div class="detail-item">
+          <div class="detail-label">Manufacturing Timestamp</div>
+          <div class="detail-value" id="viewProdDate">&mdash;</div>
+        </div>
+
+        <div class="detail-item">
+          <div class="detail-label">Metadata URI (IPFS)</div>
+          <div class="detail-value">
+            <a id="viewProdIpfs" href="#" target="_blank" style="color: var(--secondary); text-decoration: underline;">
+              ipfs://...
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Environmental & Lifecycle Metrics (From IPFS) -->
+      <h3 style="font-size: 1.15rem; margin-bottom: 0.75rem;">Environmental & Circularity Footprint</h3>
+      <div class="details-grid">
+        <div class="detail-item">
+          <div class="detail-label">Carbon Footprint</div>
+          <div class="detail-value" id="viewProdCarbon">&mdash;</div>
+        </div>
+
+        <div class="detail-item">
+          <div class="detail-label">Recyclability Score</div>
+          <div class="detail-value" id="viewProdRecyclability">&mdash;</div>
+        </div>
+
+        <div class="detail-item">
+          <div class="detail-label">Country of Origin</div>
+          <div class="detail-value" id="viewProdOrigin">&mdash;</div>
+        </div>
+
+        <div class="detail-item">
+          <div class="detail-label">Bill of Materials</div>
+          <div class="detail-value" id="viewProdMaterials">&mdash;</div>
+        </div>
+      </div>
+
+      <!-- Maintenance & Repair Pedigree Timeline -->
+      <h3 style="font-size: 1.15rem; margin-bottom: 0.75rem;">Verifiable Service & Repair History</h3>
+      <div id="noRepairsNotice" style="color: var(--text-muted); font-size: 0.9rem;">
+        No repairs or service records logged on-chain. Product remains in original factory condition.
+      </div>
+      <div id="repairTimeline" class="timeline" style="display: none;"></div>
+
+      <!-- Mandatory Anti-Fraud Caution Note -->
+      <div class="security-notice">
+        <div style="font-size: 1.5rem; line-height: 1;">&#9888;</div>
+        <div>
+          <strong>Important Anti-Fraud Notice:</strong>
+          A physical QR code or barcode alone does <em>not</em> prove physical authenticity, as packaging stickers can be copied or duplicated by counterfeiters.
+          Always cross-reference the physical serial number permanently etched on the hardware with the on-chain serial number shown above, inspect factory tamper-evident seals, and verify that the contract address matches the official ReLife deployment.
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <p>ReLife DPP &copy; 2026 &mdash; Built on Ethereum Sepolia, Hardhat, Ethers.js & Pinata IPFS</p>
+  </footer>
+
+  <!-- External Libraries -->
+  <!-- Ethers.js v6 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js"></script>
+  <!-- QRCode.js for client-side dynamic QR generation -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- Html5Qrcode for in-browser camera scanning -->
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+
+  <!-- Contract Data & App Scripts -->
+  <script src="contract-data.js"></script>
+  <script src="js/wallet.js"></script>
+  <script src="js/product.js"></script>
+</body>
+</html>
+

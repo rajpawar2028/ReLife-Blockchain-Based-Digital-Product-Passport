@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReLife - Admin Portal & Role Governance</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .admin-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .admin-stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--dark-border);
+      border-radius: var(--radius-md);
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .admin-stat-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .admin-stat-val {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--text-main);
+    }
+    .onboarding-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+    .onboarding-card {
+      background: var(--bg-card);
+      border: 1px solid var(--dark-border);
+      border-radius: var(--radius-lg);
+      padding: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .onboarding-card h3 {
+      font-size: 1.15rem;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .onboarding-desc {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin-bottom: 1.25rem;
+    }
+    .role-actions {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+    }
+    .status-box {
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      border-radius: var(--radius-sm);
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--dark-border);
+      font-size: 0.875rem;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <a href="index.html" class="logo-area">
+        <div class="logo-icon">&#9851;</div>
+        <span class="logo-text">ReLife</span>
+        <span class="logo-tag">Passport</span>
+      </a>
+
+      <nav>
+        <ul class="nav-links">
+          <li><a href="index.html" class="nav-link">Home</a></li>
+          <li><a href="manufacturer.html" class="nav-link">Manufacturer</a></li>
+          <li><a href="owner.html" class="nav-link">Owner Dashboard</a></li>
+          <li><a href="recycler.html" class="nav-link">Recycler Portal</a></li>
+          <li><a href="product.html" class="nav-link">Verify Product</a></li>
+          <li><a href="admin.html" class="nav-link active">Admin Portal</a></li>
+        </ul>
+      </nav>
+
+      <div class="wallet-section">
+        <div id="walletBadge">
+          <span class="badge badge-warning">Disconnected</span>
+        </div>
+        <button id="connectWalletBtn" class="btn btn-primary">Connect Wallet</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">Admin Portal &amp; Role Governance</h1>
+      <p class="page-subtitle">
+        Onboard supply chain participants, issue cryptographic roles, and inspect participant registrations on Ethereum.
+      </p>
+    </div>
+
+    <!-- Alert / Notification Banner -->
+    <div id="adminAlert" class="alert" style="display: none;"></div>
+
+    <!-- State 1: Wallet Disconnected Prompt -->
+    <div id="authSection" class="card" style="text-align: center; padding: 3rem 1.5rem;">
+      <h2 style="margin-bottom: 0.75rem;">Connect Contract Administrator Wallet</h2>
+      <p style="color: var(--text-muted); max-width: 540px; margin: 0 auto 1.5rem auto;">
+        Access to role assignment and participant onboarding is cryptographically protected. Connect the wallet holding
+        <code>DEFAULT_ADMIN_ROLE</code> (deployer address) to proceed.
+      </p>
+      <button onclick="document.getElementById('connectWalletBtn').click()" class="btn btn-primary" style="padding: 0.75rem 2rem;">
+        Connect Admin Wallet
+      </button>
+    </div>
+
+    <!-- State 2: Wallet Connected but Unauthorized -->
+    <div id="unauthorizedSection" class="card" style="display: none; border-color: var(--danger); text-align: center; padding: 3rem 1.5rem;">
+      <div style="font-size: 2.5rem; margin-bottom: 1rem;">&#9888;</div>
+      <h2 style="color: var(--danger); margin-bottom: 0.75rem;">Access Denied: Admin Role Required</h2>
+      <p style="color: var(--text-muted); max-width: 600px; margin: 0 auto 1.5rem auto;">
+        Connected account <code id="unauthAccount" style="color: #cbd5e1; word-break: break-all;"></code> does not hold the
+        <strong>DEFAULT_ADMIN_ROLE</strong> on the ReLife smart contract. Only designated administrators can onboard partners or modify permissions.
+      </p>
+      <p style="font-size: 0.85rem; color: var(--text-muted);">
+        Please switch to the contract deployer account in MetaMask.
+      </p>
+    </div>
+
+    <!-- State 3: Admin Workspace -->
+    <div id="adminWorkspace" style="display: none;">
+      
+      <!-- Admin Overview Stats -->
+      <div class="admin-stats">
+        <div class="admin-stat-card">
+          <span class="admin-stat-label">Admin Account</span>
+          <span id="statAdminAddress" class="admin-stat-val" style="font-size: 0.95rem; font-family: monospace; word-break: break-all;">-</span>
+        </div>
+        <div class="admin-stat-card">
+          <span class="admin-stat-label">Contract Address</span>
+          <span id="statContractAddress" class="admin-stat-val" style="font-size: 0.95rem; font-family: monospace; word-break: break-all;">-</span>
+        </div>
+        <div class="admin-stat-card">
+          <span class="admin-stat-label">Network / Chain ID</span>
+          <span id="statNetwork" class="admin-stat-val" style="font-size: 1.1rem; color: var(--primary);">-</span>
+        </div>
+      </div>
+
+      <!-- Section: Participant Onboarding -->
+      <h2 style="margin-bottom: 1rem; font-size: 1.35rem;">Onboard Lifecycle Participants</h2>
+      <div class="onboarding-grid">
+        
+        <!-- Onboarding Form 1: Manufacturer -->
+        <div class="onboarding-card">
+          <div>
+            <h3><span>&#127981;</span> Register Manufacturer</h3>
+            <p class="onboarding-desc">
+              Grants <code>MANUFACTURER_ROLE</code> to mint new Digital Product Passports and register hardware serials.
+            </p>
+            <form id="formRegisterMfg">
+              <div class="form-group" style="margin-bottom: 0.75rem;">
+                <label for="mfgAddress">Manufacturer Wallet Address <span class="required">*</span></label>
+                <input type="text" id="mfgAddress" placeholder="0x..." required pattern="^0x[a-fA-F0-9]{40}$">
+              </div>
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label for="mfgName">Organization / Brand Name <span class="required">*</span></label>
+                <input type="text" id="mfgName" placeholder="e.g. Fairphone B.V." required>
+              </div>
+              <button type="submit" id="btnRegisterMfg" class="btn btn-primary" style="width: 100%;">
+                Register Manufacturer
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Onboarding Form 2: Repair Center -->
+        <div class="onboarding-card">
+          <div>
+            <h3><span>&#128295;</span> Register Repair Center</h3>
+            <p class="onboarding-desc">
+              Grants <code>REPAIR_CENTER_ROLE</code> allowing certified repair facilities to log immutable service records.
+            </p>
+            <form id="formRegisterRepair">
+              <div class="form-group" style="margin-bottom: 0.75rem;">
+                <label for="repairAddress">Repair Center Wallet Address <span class="required">*</span></label>
+                <input type="text" id="repairAddress" placeholder="0x..." required pattern="^0x[a-fA-F0-9]{40}$">
+              </div>
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label for="repairName">Facility / Service Name <span class="required">*</span></label>
+                <input type="text" id="repairName" placeholder="e.g. Geneva EcoFix Hub" required>
+              </div>
+              <button type="submit" id="btnRegisterRepair" class="btn btn-primary" style="width: 100%;">
+                Register Repair Center
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Onboarding Form 3: Recycler -->
+        <div class="onboarding-card">
+          <div>
+            <h3><span>&#9851;</span> Register Recycler</h3>
+            <p class="onboarding-desc">
+              Grants <code>RECYCLER_ROLE</code> to decommission end-of-life products and record circular material yields.
+            </p>
+            <form id="formRegisterRecycler">
+              <div class="form-group" style="margin-bottom: 0.75rem;">
+                <label for="recyclerAddress">Recycler Wallet Address <span class="required">*</span></label>
+                <input type="text" id="recyclerAddress" placeholder="0x..." required pattern="^0x[a-fA-F0-9]{40}$">
+              </div>
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label for="recyclerName">Facility / Plant Name <span class="required">*</span></label>
+                <input type="text" id="recyclerName" placeholder="e.g. Circular Recovery Plant #4" required>
+              </div>
+              <button type="submit" id="btnRegisterRecycler" class="btn btn-primary" style="width: 100%;">
+                Register Recycler
+              </button>
+            </form>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Section: Direct Role Governance (Grant / Revoke / Inspect) -->
+      <div class="card" style="margin-bottom: 2.5rem;">
+        <h2 style="font-size: 1.35rem; margin-bottom: 0.5rem;">Direct Role Governance &amp; Revocation</h2>
+        <p style="color: var(--text-muted); font-size: 0.875rem; margin-bottom: 1.5rem;">
+          Manage cryptographic permissions directly. Revoke roles from compromised keys or grant administrative access.
+        </p>
+
+        <form id="formRoleManagement">
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="roleSelect">Target Role <span class="required">*</span></label>
+              <select id="roleSelect" required>
+                <option value="MANUFACTURER_ROLE">MANUFACTURER_ROLE</option>
+                <option value="REPAIR_CENTER_ROLE">REPAIR_CENTER_ROLE</option>
+                <option value="RECYCLER_ROLE">RECYCLER_ROLE</option>
+                <option value="DEFAULT_ADMIN_ROLE">DEFAULT_ADMIN_ROLE (Contract Admin)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="targetRoleAddress">Target Wallet Address <span class="required">*</span></label>
+              <input type="text" id="targetRoleAddress" placeholder="0x..." required pattern="^0x[a-fA-F0-9]{40}$">
+            </div>
+          </div>
+
+          <div class="role-actions">
+            <button type="button" id="btnCheckRole" class="btn btn-secondary">
+              Check Role Status
+            </button>
+            <button type="button" id="btnGrantRole" class="btn btn-primary">
+              Grant Role
+            </button>
+            <button type="button" id="btnRevokeRole" class="btn btn-danger">
+              Revoke Role
+            </button>
+          </div>
+
+          <div id="roleCheckResult" class="status-box"></div>
+        </form>
+      </div>
+
+      <!-- Section: Registered Participants Table & Audit Log -->
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
+          <div>
+            <h2 style="font-size: 1.35rem; margin-bottom: 0.25rem;">Participant Directory &amp; Audit Trail</h2>
+            <p style="color: var(--text-muted); font-size: 0.85rem;">
+              Auditable on-chain records of registered manufacturers, repair facilities, and recyclers.
+            </p>
+          </div>
+          <button id="btnRefreshParticipants" class="btn btn-secondary" style="font-size: 0.85rem; padding: 0.4rem 0.85rem;">
+            &#8635; Refresh Directory
+          </button>
+        </div>
+
+        <div class="table-responsive">
+          <table id="participantsTable">
+            <thead>
+              <tr>
+                <th>Organization / Facility</th>
+                <th>Role</th>
+                <th>Ethereum Address</th>
+                <th>Registered By</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="participantsTableBody">
+              <tr>
+                <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                  Loading registered participants from smart contract events...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer style="margin-top: auto; padding: 2rem 1.5rem; text-align: center; border-top: 1px solid var(--dark-border); color: var(--text-muted); font-size: 0.85rem;">
+    ReLife Digital Product Passport Platform &bull; Built with Solidity 0.8.24, Hardhat, Ethers.js v6 &amp; Pinata IPFS &bull; Admin Portal
+  </footer>
+
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>
+  <script src="contract-data.js"></script>
+  <script src="js/wallet.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>
+
