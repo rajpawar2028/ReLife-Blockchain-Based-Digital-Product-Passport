@@ -31,48 +31,50 @@ Physical consumer products (electronics, luxury goods, industrial machinery) suf
 
 ```mermaid
 flowchart TD
-    subgraph Clients["Frontend Portals (Pure HTML5 / CSS3 / Vanilla JS)"]
-        UI_Admin["Admin Portal<br/>(admin.html)"]
-        UI_Mfg["Manufacturer Portal<br/>(manufacturer.html)"]
-        UI_Owner["Owner Dashboard<br/>(owner.html)"]
-        UI_Recycler["Recycler Portal<br/>(recycler.html)"]
-        UI_Verify["Consumer Verification<br/>(product.html + QR Scanner)"]
+    subgraph Clients["Frontend Portals - Pure HTML5, CSS3, Vanilla JS"]
+        UI_Admin["Admin Portal<br>admin.html"]
+        UI_Mfg["Manufacturer Portal<br>manufacturer.html"]
+        UI_Owner["Owner Dashboard<br>owner.html"]
+        UI_Recycler["Recycler Portal<br>recycler.html"]
+        UI_Verify["Consumer Verification<br>product.html and QR Scanner"]
     end
 
     subgraph Wallet["Web3 Layer"]
-        MM["MetaMask Wallet<br/>(Signer)"]
-        EthersJS["Ethers.js v6<br/>(ReLifeWallet)"]
-        PublicRPC["Dedicated Sepolia RPC<br/>(Read-Only Fallback)"]
+        MM["MetaMask Wallet<br>Signer"]
+        EthersJS["Ethers.js v6<br>ReLifeWallet"]
+        PublicRPC["Dedicated Sepolia RPC<br>Read-Only Fallback"]
     end
 
-    subgraph Backend["Secure Backend (Express API)"]
-        ExpressApp["Express Server (:5000)"]
-        Multer["Multer Memory Buffer<br/>(MIME & Size Filter)"]
-        PinataService["Pinata IPFS Gateway<br/>(JWT / API Key Shielded)"]
+    subgraph Backend["Secure Backend - Express API"]
+        ExpressApp["Express Server on Port 5000"]
+        Multer["Multer Memory Buffer<br>MIME and Size Filter"]
+        PinataService["Pinata IPFS Gateway<br>JWT and API Key Shielded"]
     end
 
-    subgraph Storage["Decentralized Storage & Blockchain"]
-        IPFS["Pinata IPFS<br/>(Metadata, Invoices & Certificates)"]
-        SmartContract["ReLife Smart Contract<br/>(Sepolia Testnet)"]
+    subgraph Storage["Decentralized Storage and Blockchain"]
+        IPFS["Pinata IPFS<br>Metadata, Invoices and Certificates"]
+        SmartContract["ReLife Smart Contract<br>Sepolia Testnet"]
     end
 
     %% Client to Web3
-    UI_Admin -->|Signs Admin Tx| MM
-    UI_Mfg -->|Signs Mint Tx| MM
-    UI_Owner -->|Signs Transfer Tx| MM
-    UI_Recycler -->|Signs Recycle Tx| MM
+    UI_Admin -->|"Signs Admin Tx"| MM
+    UI_Mfg -->|"Signs Mint Tx"| MM
+    UI_Owner -->|"Signs Transfer Tx"| MM
+    UI_Recycler -->|"Signs Recycle Tx"| MM
     MM --> EthersJS
-    UI_Verify -->|Direct Read (No Wallet)| PublicRPC
+    UI_Verify -->|"Direct Read - No Wallet"| PublicRPC
     PublicRPC --> SmartContract
 
     %% Client to Backend IPFS
-    UI_Mfg -->|Upload Spec / Metadata| ExpressApp
-    UI_Recycler -->|Upload Destruction Cert| ExpressApp
-    ExpressApp --> Multer --> PinataService -->|Pin JSON / Files| IPFS
+    UI_Mfg -->|"Upload Spec or Metadata"| ExpressApp
+    UI_Recycler -->|"Upload Destruction Cert"| ExpressApp
+    ExpressApp --> Multer
+    Multer --> PinataService
+    PinataService -->|"Pin JSON or Files"| IPFS
 
     %% Web3 to Smart Contract
-    EthersJS -->|Execute Transactions| SmartContract
-    PinataService -.->|Returns ipfs:// CID| UI_Mfg
+    EthersJS -->|"Execute Transactions"| SmartContract
+    PinataService -.->|"Returns ipfs CID"| UI_Mfg
 ```
 
 ### Components Matrix
