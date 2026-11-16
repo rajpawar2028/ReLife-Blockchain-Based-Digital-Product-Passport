@@ -32,4 +32,8 @@
   - Recorded architectural decisions in `DECISIONS.md`.
   - Ran full test suite across 10 test suites: **116 passing tests** with 100% success rate.
 - **What is broken / blockers**: None. All 10 phases completed and verified.
-- **Next Step**: Project ready for live presentation, evaluation, and GitHub publishing.
+- **Next Step**: Project ready for live presentation, evaluation, and viva defense.
+- **GitHub Repository**: [https://github.com/rajpawar2028/ReLife-Blockchain-Based-Digital-Product-Passport](https://github.com/rajpawar2028/ReLife-Blockchain-Based-Digital-Product-Passport)
+  - Security audit verified 0 secrets leaked (`.env` strictly excluded).
+  - Clean commit history under author Raj Pawar (`rajvirajpawar@gmail.com`).
+  - Professional portfolio `README.md` with system diagrams and Sepolia contract link.
