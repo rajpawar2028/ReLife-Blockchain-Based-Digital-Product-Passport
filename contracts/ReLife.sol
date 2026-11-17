@@ -32,6 +32,9 @@ contract ReLife is AccessControl {
     error ReLife__InvalidStatusTransition(Status currentStatus, Status attemptedStatus);
     error ReLife__UnauthorizedStatusUpdater(uint256 productId, address caller);
     error ReLife__ProductInRepair(uint256 productId);
+    error ReLife__TransferAlreadyPending(uint256 productId, address pendingOwner);
+    error ReLife__NoTransferPending(uint256 productId);
+    error ReLife__NotPendingOwner(uint256 productId, address caller);
 
     // -------------------------------------------------------------
     // DATA STRUCTURES
@@ -110,6 +113,9 @@ contract ReLife is AccessControl {
     // Mapping from product ID to array of OwnershipRecords (auditable chain of custody)
     mapping(uint256 => OwnershipRecord[]) private _ownershipHistory;
 
+    // Mapping from product ID to designated pending owner (for 2-step ownership transfer)
+    mapping(uint256 => address) private _pendingOwners;
+
     // Mapping from product ID to Warranty
     mapping(uint256 => Warranty) private _productWarranties;
 
@@ -161,6 +167,27 @@ contract ReLife is AccessControl {
         uint256 indexed productId,
         address indexed previousOwner,
         address indexed newOwner,
+        uint256 timestamp
+    );
+
+    event TransferInitiated(
+        uint256 indexed productId,
+        address indexed from,
+        address indexed to,
+        uint256 timestamp
+    );
+
+    event TransferAccepted(
+        uint256 indexed productId,
+        address indexed previousOwner,
+        address indexed newOwner,
+        uint256 timestamp
+    );
+
+    event TransferCancelled(
+        uint256 indexed productId,
+        address indexed owner,
+        address indexed pendingOwner,
         uint256 timestamp
     );
 
@@ -342,6 +369,132 @@ contract ReLife is AccessControl {
     // OWNERSHIP & WARRANTY MANAGEMENT
     // -------------------------------------------------------------
     /**
+     * @notice Initiates a 2-step ownership transfer to a designated pending owner.
+     * @dev Restricted strictly to the current owner of the product.
+     *      Blocks if the product is Recycled, InRepair, or if a transfer is already pending.
+     * @param productId The ID of the product.
+     * @param to The recipient address being offered ownership.
+     */
+    function initiateTransfer(
+        uint256 productId,
+        address to
+    ) external {
+        if (productId == 0 || productId > _productIdCounter) {
+            revert ReLife__ProductNotFound(productId);
+        }
+        if (_products[productId].isRecycled || _products[productId].status == Status.Recycled) {
+            revert ReLife__ProductAlreadyRecycled(productId);
+        }
+        if (_products[productId].status == Status.InRepair) {
+            revert ReLife__ProductInRepair(productId);
+        }
+        if (msg.sender != _products[productId].currentOwner) {
+            revert ReLife__NotProductOwner(productId, msg.sender);
+        }
+        if (to == address(0)) {
+            revert ReLife__ZeroAddress();
+        }
+        if (to == msg.sender) {
+            revert ReLife__CannotTransferToSelf();
+        }
+        if (_pendingOwners[productId] != address(0)) {
+            revert ReLife__TransferAlreadyPending(productId, _pendingOwners[productId]);
+        }
+
+        _pendingOwners[productId] = to;
+
+        emit TransferInitiated(productId, msg.sender, to, block.timestamp);
+    }
+
+    /**
+     * @notice Accepts a pending ownership transfer, finalizing the change of custody.
+     * @dev Restricted strictly to the pendingOwner designated by initiateTransfer.
+     *      Blocks if the product is Recycled, InRepair, or if no transfer is pending.
+     * @param productId The ID of the product.
+     */
+    function acceptTransfer(uint256 productId) external {
+        if (productId == 0 || productId > _productIdCounter) {
+            revert ReLife__ProductNotFound(productId);
+        }
+        if (_products[productId].isRecycled || _products[productId].status == Status.Recycled) {
+            revert ReLife__ProductAlreadyRecycled(productId);
+        }
+        if (_products[productId].status == Status.InRepair) {
+            revert ReLife__ProductInRepair(productId);
+        }
+        address pending = _pendingOwners[productId];
+        if (pending == address(0)) {
+            revert ReLife__NoTransferPending(productId);
+        }
+        if (msg.sender != pending) {
+            revert ReLife__NotPendingOwner(productId, msg.sender);
+        }
+
+        address previousOwner = _products[productId].currentOwner;
+        _products[productId].currentOwner = msg.sender;
+        _pendingOwners[productId] = address(0);
+
+        // Auto-transition Manufactured -> Sold on initial sale/transfer
+        if (_products[productId].status == Status.Manufactured) {
+            _products[productId].status = Status.Sold;
+            emit StatusChanged(
+                productId,
+                Status.Manufactured,
+                Status.Sold,
+                msg.sender,
+                block.timestamp
+            );
+        }
+
+        // Append to auditable ownership history
+        _ownershipHistory[productId].push(
+            OwnershipRecord({
+                previousOwner: previousOwner,
+                newOwner: msg.sender,
+                timestamp: block.timestamp
+            })
+        );
+
+        emit TransferAccepted(productId, previousOwner, msg.sender, block.timestamp);
+        emit OwnershipTransferred(productId, previousOwner, msg.sender, block.timestamp);
+    }
+
+    /**
+     * @notice Cancels an active pending transfer, keeping ownership with current owner.
+     * @dev Restricted strictly to the current owner of the product.
+     *      Blocks if no transfer is pending.
+     * @param productId The ID of the product.
+     */
+    function cancelTransfer(uint256 productId) external {
+        if (productId == 0 || productId > _productIdCounter) {
+            revert ReLife__ProductNotFound(productId);
+        }
+        if (msg.sender != _products[productId].currentOwner) {
+            revert ReLife__NotProductOwner(productId, msg.sender);
+        }
+        address pending = _pendingOwners[productId];
+        if (pending == address(0)) {
+            revert ReLife__NoTransferPending(productId);
+        }
+
+        _pendingOwners[productId] = address(0);
+
+        emit TransferCancelled(productId, msg.sender, pending, block.timestamp);
+    }
+
+    /**
+     * @notice Retrieves the designated pending owner address for a product passport.
+     * @param productId The ID of the product.
+     * @return Address of the pending owner, or address(0) if no transfer is pending.
+     */
+    function getPendingOwner(uint256 productId) external view returns (address) {
+        if (productId == 0 || productId > _productIdCounter) {
+            revert ReLife__ProductNotFound(productId);
+        }
+        return _pendingOwners[productId];
+    }
+
+    /**
      * @notice Transfers ownership of a product passport to a new wallet address.
      * @dev Restricted strictly to the current owner of the product.
      * @param productId The ID of the product.
@@ -368,6 +521,9 @@ contract ReLife is AccessControl {
         }
         if (newOwner == msg.sender) {
             revert ReLife__CannotTransferToSelf();
+        }
+        if (_pendingOwners[productId] != address(0)) {
+            revert ReLife__TransferAlreadyPending(productId, _pendingOwners[productId]);
         }
 
         address previousOwner = msg.sender;

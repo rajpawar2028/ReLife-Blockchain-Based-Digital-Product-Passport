@@ -20,7 +20,7 @@
 
 - [x] **Feature 1: Product Status State Machine** — Enum `Status { Manufactured, Sold, InRepair, Recycled }`, valid transition enforcement, `StatusChanged` event, terminal `Recycled` locking.
 - [x] **Feature 2: Warranty with Automatic Expiry Evaluation** — `warrantyStart` and `warrantyEnd` timestamps per product, view `isWarrantyValid(id)` using `block.timestamp`, UI status with days remaining.
-- [ ] **Feature 3: Ownership Transfer with 2-Step Accept** — `initiateTransfer(id, to)`, `acceptTransfer(id)`, `cancelTransfer(id)`, pending owner state, blocked on Recycled/already pending, full custody history.
+- [x] **Feature 3: Ownership Transfer with 2-Step Accept** — `initiateTransfer(id, to)`, `acceptTransfer(id)`, `cancelTransfer(id)`, pending owner state, blocked on Recycled/already pending, full custody history.
 - [ ] **Feature 4: Authenticity Secret Hash on Chain** — Off-chain cryptographically random secret generation in backend, on-chain `keccak256(secret)` storage, view `verifySecret(id, secret)`, anti-counterfeiting verification UI.
 - [ ] **Feature 5: Scan Counter & Anomaly Alert** — Backend scan rate-limiting and logging with hashed IPs, `GET /api/scans/:id`, suspicious counterfeit alert thresholds on Verify portal.
 - [ ] **Feature 6: Comprehensive Lifecycle Timeline View** — Event-driven chronological timeline from `ProductRegistered`, `StatusChanged`, `RepairAdded`, `TransferInitiated/Accepted`, `WarrantyAdded`, and `Recycled` using safe DOM `textContent`.
@@ -29,18 +29,19 @@
 ---
 
 ## Current Status
-- **Current Phase**: Advanced 7-Feature Roadmap — Feature 2 Completed (Feature 3 Ready)
+- **Current Phase**: Advanced 7-Feature Roadmap — Feature 3 Completed (Feature 4 Ready)
 - **What is done**:
   - **Feature 1 (Product Status State Machine)**: Integrated `enum Status { Manufactured, Sold, InRepair, Recycled }`, `updateProductStatus`, `getProductStatus`, and `StatusChanged` events with 15 dedicated Hardhat tests.
-  - **Feature 2 (Warranty with Automatic Expiry Evaluation)**:
-    - Added `warrantyStart` and `warrantyEnd` timestamps to `struct Warranty` in `contracts/ReLife.sol`, preserving `expiryTimestamp` for backward compatibility.
-    - Implemented internal `_setWarranty`, `setProductWarranty(productId, start, end, type, uri)`, and backward-compatible `addWarranty(productId, expiry, type, uri)` callable by manufacturer, admin, or current owner (authorized seller).
-    - Created gas-free `isWarrantyValid(uint256 productId)` public view function using `block.timestamp`.
-    - Added 14 comprehensive unit tests in `test/WarrantyExpiry.test.js` validating issuance, automatic expiration via `time.increase`, recycled lockout, and input validations.
-    - Updated `frontend/js/owner.js` and `frontend/js/product.js` to dynamically compute `daysLeft` and display `Valid (${daysLeft} days left)` or `Expired`.
-  - Ran full test suite across 12 test suites: **145 passing tests** with 100% success rate.
-- **What is broken / blockers**: None. All 145 tests passing cleanly.
-- **Next Step**: Feature 3: Ownership Transfer with 2-Step Accept (`initiateTransfer`, `acceptTransfer`, `cancelTransfer`).
+  - **Feature 2 (Warranty with Automatic Expiry Evaluation)**: Integrated `warrantyStart` and `warrantyEnd`, `setProductWarranty`, gas-free `isWarrantyValid(id)` view method, countdown UI display, and 14 dedicated Hardhat tests.
+  - **Feature 3 (Ownership Transfer with 2-Step Accept)**:
+    - Added `_pendingOwners` mapping, `initiateTransfer(id, to)`, `acceptTransfer(id)`, `cancelTransfer(id)`, and `getPendingOwner(id)`.
+    - Enforced mutation and concurrency locks: prevents self-transfer, zero address, double-pending transfers, and transfers during `InRepair` or terminal `Recycled` states.
+    - Emitted `TransferInitiated`, `TransferAccepted`, `TransferCancelled`, and backward-compatible `OwnershipTransferred` events.
+    - Updated `frontend/owner.html` and `frontend/js/owner.js` with an "Incoming Transfers Awaiting Acceptance" inbox and cancellation controls.
+    - Added 16 comprehensive unit tests in `test/TransferAccept.test.js`.
+  - Ran full test suite across 13 test suites: **161 passing tests** with 100% success rate.
+- **What is broken / blockers**: None. All 161 tests passing cleanly.
+- **Next Step**: Feature 4: Authenticity Secret (Hash Stored On-Chain, view `verifySecret`).
 - **GitHub Repository**: [https://github.com/rajpawar2028/ReLife-Blockchain-Based-Digital-Product-Passport](https://github.com/rajpawar2028/ReLife-Blockchain-Based-Digital-Product-Passport)
   - Security audit verified 0 secrets leaked (`.env` strictly excluded).
   - Clean commit history under author Raj Pawar (`rajvirajpawar@gmail.com`).

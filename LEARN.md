@@ -745,3 +745,39 @@ await time.increase(86400 * 31);
 
 #### Q3: How do Hardhat network helpers (`time.increase`, `time.latest`) work under the hood when testing time-dependent Solidity logic?
 > **Model Answer**: Under the hood, Hardhat runs an in-memory Ethereum node implementing custom non-standard JSON-RPC methods. When `time.increase(seconds)` is called, Hardhat dispatches the `evm_increaseTime` RPC call with the requested number of seconds, followed by `evm_mine`. This adjusts the internal block clock offset of the virtual node and creates a new block whose `block.timestamp` reflects the future time. When our test queries `isWarrantyValid(id)`, the EVM executes against this advanced timestamp, allowing instantaneous verification of multi-year lifecycles in milliseconds.
+
+---
+
+## Appendix: Feature 3 — Ownership Transfer with 2-Step Accept Flow
+
+### 1. New Concepts Explained in Plain English
+
+#### The 2-Step Transfer Pattern (`Ownable2Step`)
+In standard Web3 contracts (like OpenZeppelin's basic `Ownable`), ownership transfer is a **1-step push operation**: the current owner specifies a new address, and the asset transfers instantly.
+- **The Catastrophic Problem**: If the owner makes a single typo in the 42-character hexadecimal address (e.g. sending to an address where no one holds the private key), **the asset is lost forever**—no one can ever transfer it or access it again.
+- **The 2-Step Solution**:
+  1. **Initiate (`initiateTransfer`)**: The current owner proposes a recipient by setting `pendingOwner`. Crucially, ownership does **NOT** transfer yet.
+  2. **Accept (`acceptTransfer`)**: The proposed recipient must connect their wallet and sign a transaction calling `acceptTransfer`. This proves beyond all cryptographic doubt that the recipient actually controls the private key for that address!
+
+#### Cancellation Safeguards & Transit Windows
+What happens if the current owner enters the wrong address or the intended buyer changes their mind?
+- With 1-step transfer, the owner is helpless.
+- With 2-step transfer, as long as the transfer has not been accepted, the current owner can call `cancelTransfer(productId)` at any time to revoke the offer, resetting `pendingOwner` back to `address(0)`.
+
+#### Supply Chain Integrity During Servicing & Decommissioning
+A Digital Product Passport must reflect physical reality:
+- If a laptop is currently disassembled in a repair shop (`Status.InRepair`), the owner cannot sell or transfer it to someone else until servicing is complete.
+- If a product has been shredded or recycled (`Status.Recycled`), it has permanently reached end-of-life. Allowing transfers on recycled items would enable black-market counterfeiters to trade "zombie passports". ReLife enforces strict lifecycle guards on both `initiateTransfer` and `acceptTransfer`.
+
+---
+
+### 2. Three Viva / Interview Questions You Should Be Able to Answer (Feature 3)
+
+#### Q1: What is the 2-step transfer pattern (often called `Ownable2Step` in OpenZeppelin), and what catastrophic problem does it prevent?
+> **Model Answer**: In a traditional 1-step transfer, ownership updates immediately upon the sender's transaction. If the sender makes a single typo or provides an un-owned address, the asset is permanently burnt/stranded because no private key exists to control that address. The 2-step pattern separates transfer into `initiateTransfer` (proposing a `pendingOwner`) and `acceptTransfer` (executed by the recipient). This guarantees that ownership only transfers when the recipient proves control of the designated private key by broadcasting a valid signed transaction from that address.
+
+#### Q2: What should happen to the `pendingOwner` variable when a transfer is either accepted or cancelled?
+> **Model Answer**: In both cases, `pendingOwner` must be explicitly reset to `address(0)`. On acceptance, setting `_pendingOwners[productId] = address(0)` ensures the pending state is cleared before updating `currentOwner`. On cancellation, resetting it to `address(0)` prevents the previously designated recipient from front-running or late-accepting the transfer. Resetting storage variables to zero also helps optimize EVM gas usage by qualifying for storage refund mechanisms.
+
+#### Q3: Why does ReLife block ownership transfers when a product's status is `InRepair` or `Recycled`?
+> **Model Answer**: A Digital Product Passport must guarantee digital-physical correspondence. If a physical device is disassembled inside a certified service center (`Status.InRepair`), secondary sales must be halted to prevent disputes over incomplete repairs or missing hardware components. Furthermore, once an item is shredded at end-of-life (`Status.Recycled`), permitting transfers would allow counterfeiters to purchase "empty" legitimate passports and re-assign them to illicit duplicate hardware. Blocking transfers at the smart contract level enforces physical supply chain reality cryptographically.

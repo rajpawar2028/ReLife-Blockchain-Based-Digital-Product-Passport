@@ -77,3 +77,10 @@
 - **Unified Multi-Party Issuance Authorization**: Implemented `_setWarranty` allowing issuance by the original manufacturer, contract administrator, or the current product owner (`product.currentOwner`, representing an authorized seller or distributor).
 - **Dynamic On-Chain Validity Evaluation (`isWarrantyValid`)**: Created a gas-free `view` method that checks `block.timestamp >= warrantyStart && block.timestamp < warrantyEnd` and ensures the asset is not decommissioned. This replaces Web2 cron jobs with instant, zero-cost state evaluation.
 - **Relative Time UI Presentation**: Calculated `daysLeft = Math.ceil((warrantyEnd - now) / 86400)` in both `owner.js` and `product.js` to render user-friendly `Valid (${daysLeft} days left)` or `Expired` badges.
+
+## Feature 3: Ownership Transfer with 2-Step Accept Flow
+- **2-Step Transfer Architecture (`Ownable2Step` Pattern)**: Replaced single-step push transfers with a resilient 2-step protocol: `initiateTransfer(id, to)` designates a `pendingOwner`, and `acceptTransfer(id)` is callable solely by the recipient. This prevents catastrophic irreversible loss of product passports due to recipient address typos.
+- **Owner Cancellation Safeguard**: Added `cancelTransfer(id)` allowing the current owner to abort an unaccepted pending transfer at any time, returning `pendingOwner` to `address(0)`.
+- **Concurrency & State Transition Guards**: Enforces that only one transfer can be pending at a time (`ReLife__TransferAlreadyPending`). Transfers are strictly forbidden while a product is in `InRepair` or terminal `Recycled` status.
+- **Backward Compatibility & Dual Event Emission**: Maintained `transferOwnership` for legacy operations and emitted both `TransferAccepted` and `OwnershipTransferred` inside `acceptTransfer` to satisfy external indexers and event listeners without breaking changes.
+- **Two-Way Owner Dashboard Inbox**: Added an "Incoming Transfers Awaiting Acceptance" inbox in `owner.html` and `owner.js` alongside outgoing pending transfer status badges, enabling seamless peer-to-peer handoffs.

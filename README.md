@@ -7,7 +7,7 @@
 [![Ethers.js](https://img.shields.io/badge/Web3-Ethers.js%20v6-2535a0)](https://docs.ethers.org/v6/)
 [![Ethereum](https://img.shields.io/badge/Network-Sepolia%20Testnet-627EEA?logo=ethereum)](https://sepolia.etherscan.io/)
 [![IPFS](https://img.shields.io/badge/Storage-Pinata%20IPFS-65C9C6?logo=ipfs)](https://pinata.cloud/)
-[![Tests](https://img.shields.io/badge/Tests-145%20Passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/Tests-161%20Passing-brightgreen)]()
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -23,6 +23,7 @@ Physical consumer products (electronics, luxury goods, industrial machinery) suf
 * **Role-Governed Lifecycle**: Granular access control ensures that only authorized manufacturers can mint passports, only certified repair centers can record maintenance, and only licensed recyclers can decommission assets.
 * **Deterministic Status State Machine**: Enforces a formal on-chain state machine (`Manufactured -> Sold -> InRepair -> Recycled`) with invalid move guards, repair transfer locks, and terminal recycling freeze.
 * **Dynamic Warranty Expiry Tracking**: Stores verifiable `warrantyStart` and `warrantyEnd` timestamps set by manufacturers or authorized sellers; evaluates real-time validity on-chain via free `isWarrantyValid` view function with days-remaining countdown.
+* **Resilient 2-Step Ownership Transfer**: Implements `initiateTransfer` and `acceptTransfer` with `cancelTransfer` fallback, eliminating accidental loss of passports to mistyped addresses and enforcing locks during repairs or decommissioning.
 * **Secondary Market Pedigree**: Auditable chain of custody records every owner transition on-chain without exposing customer Personally Identifiable Information (PII).
 * **Terminal Recycling Freeze**: Decommissioned hardware is permanently flagged as recycled on-chain, preventing counterfeit resurrection of discarded serial numbers.
 * **Frictionless Consumer Verification**: Anyone can scan a physical QR code on a smartphone to audit product pedigree and warranty status **without installing a wallet or paying gas fees**.
@@ -256,7 +257,7 @@ npx hardhat compile
 ```bash
 npm test
 ```
-*Executes all 145 tests across contract logic, gas benchmarks, state machines, warranty validity, backend API validation, and frontend integration.*
+*Executes all 161 tests across contract logic, gas benchmarks, state machines, warranty validity, 2-step ownership transfers, backend API validation, and frontend integration.*
 
 ### 6. (Optional) Deploy to Sepolia Testnet
 To deploy a new contract instance to Ethereum Sepolia:

@@ -98,6 +98,17 @@
 
     <!-- State 2: Products List -->
     <div id="dashboardSection" style="display: none;">
+      <!-- Incoming Pending Transfers Section -->
+      <div id="incomingTransfersSection" style="display: none; margin-bottom: 2rem;">
+        <div style="background: rgba(59, 130, 246, 0.1); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem;">
+          <h2 style="color: #60a5fa; font-size: 1.25rem; margin-bottom: 0.25rem;">&#128229; Incoming Transfers Awaiting Your Acceptance</h2>
+          <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">
+            These product passports have been offered to your wallet. Click "Accept Transfer" to claim ownership on-chain.
+          </p>
+          <div id="incomingGrid" class="owner-grid"></div>
+        </div>
+      </div>
+
       <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
         <div>
           <h2>Owned Products (<span id="ownedCount">0</span>)</h2>
