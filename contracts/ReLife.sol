@@ -29,10 +29,20 @@ contract ReLife is AccessControl {
     error ReLife__CannotTransferToSelf();
     error ReLife__InvalidWarrantyExpiry(uint256 expiryTimestamp);
     error ReLife__UnauthorizedWarrantyIssuer(uint256 productId, address caller);
+    error ReLife__InvalidStatusTransition(Status currentStatus, Status attemptedStatus);
+    error ReLife__UnauthorizedStatusUpdater(uint256 productId, address caller);
+    error ReLife__ProductInRepair(uint256 productId);
 
     // -------------------------------------------------------------
     // DATA STRUCTURES
     // -------------------------------------------------------------
+    enum Status {
+        Manufactured,
+        Sold,
+        InRepair,
+        Recycled
+    }
+
     struct Product {
         uint256 id;
         string serialNumber;
@@ -43,6 +53,7 @@ contract ReLife is AccessControl {
         uint256 manufacturingTimestamp;
         string metadataURI; // IPFS URI (e.g. ipfs://bafy...)
         bool isRecycled;
+        Status status;
     }
 
     struct RepairRecord {
@@ -168,6 +179,14 @@ contract ReLife is AccessControl {
         uint256 timestamp
     );
 
+    event StatusChanged(
+        uint256 indexed productId,
+        Status oldStatus,
+        Status newStatus,
+        address indexed actor,
+        uint256 timestamp
+    );
+
     // -------------------------------------------------------------
     // CONSTRUCTOR
     // -------------------------------------------------------------
@@ -288,7 +307,8 @@ contract ReLife is AccessControl {
             currentOwner: msg.sender, // Initially owned by the manufacturer until transferred
             manufacturingTimestamp: block.timestamp,
             metadataURI: metadataURI,
-            isRecycled: false
+            isRecycled: false,
+            status: Status.Manufactured
         });
 
         _serialNumberExists[serialNumber] = true;
@@ -332,8 +352,11 @@ contract ReLife is AccessControl {
         if (productId == 0 || productId > _productIdCounter) {
             revert ReLife__ProductNotFound(productId);
         }
-        if (_products[productId].isRecycled) {
+        if (_products[productId].isRecycled || _products[productId].status == Status.Recycled) {
             revert ReLife__ProductAlreadyRecycled(productId);
+        }
+        if (_products[productId].status == Status.InRepair) {
+            revert ReLife__ProductInRepair(productId);
         }
         if (msg.sender != _products[productId].currentOwner) {
             revert ReLife__NotProductOwner(productId, msg.sender);
@@ -347,6 +370,18 @@ contract ReLife is AccessControl {
 
         address previousOwner = msg.sender;
         _products[productId].currentOwner = newOwner;
+
+        // Auto-transition Manufactured -> Sold on initial sale/transfer
+        if (_products[productId].status == Status.Manufactured) {
+            _products[productId].status = Status.Sold;
+            emit StatusChanged(
+                productId,
+                Status.Manufactured,
+                Status.Sold,
+                msg.sender,
+                block.timestamp
+            );
+        }
 
         // Append to auditable ownership history
         _ownershipHistory[productId].push(
@@ -382,7 +417,7 @@ contract ReLife is AccessControl {
         if (productId == 0 || productId > _productIdCounter) {
             revert ReLife__ProductNotFound(productId);
         }
-        if (_products[productId].isRecycled) {
+        if (_products[productId].isRecycled || _products[productId].status == Status.Recycled) {
             revert ReLife__ProductAlreadyRecycled(productId);
         }
 
@@ -436,7 +471,7 @@ contract ReLife is AccessControl {
         if (productId == 0 || productId > _productIdCounter) {
             revert ReLife__ProductNotFound(productId);
         }
-        if (_products[productId].isRecycled) {
+        if (_products[productId].isRecycled || _products[productId].status == Status.Recycled) {
             revert ReLife__ProductAlreadyRecycled(productId);
         }
         if (bytes(repairType).length == 0) {
@@ -497,7 +532,7 @@ contract ReLife is AccessControl {
         if (productId == 0 || productId > _productIdCounter) {
             revert ReLife__ProductNotFound(productId);
         }
-        if (_products[productId].isRecycled) {
+        if (_products[productId].isRecycled || _products[productId].status == Status.Recycled) {
             revert ReLife__ProductAlreadyRecycled(productId);
         }
         if (bytes(recyclingFacility).length == 0) {
@@ -507,8 +542,10 @@ contract ReLife is AccessControl {
             revert ReLife__EmptyString("notes");
         }
 
-        // Permanently set isRecycled flag
+        // Permanently set isRecycled flag and terminal status
         _products[productId].isRecycled = true;
+        Status oldStatus = _products[productId].status;
+        _products[productId].status = Status.Recycled;
 
         _productRecyclingRecords[productId] = RecyclingRecord({
             productId: productId,
@@ -527,6 +564,104 @@ contract ReLife is AccessControl {
             certificateUri,
             block.timestamp
         );
+
+        if (oldStatus != Status.Recycled) {
+            emit StatusChanged(
+                productId,
+                oldStatus,
+                Status.Recycled,
+                msg.sender,
+                block.timestamp
+            );
+        }
+    }
+
+    // -------------------------------------------------------------
+    // PRODUCT STATUS STATE MACHINE (LIFECYCLE MANAGEMENT)
+    // -------------------------------------------------------------
+    /**
+     * @notice Transitions the lifecycle status of a product passport.
+     * @dev Enforces valid state machine moves:
+     *      - Manufactured -> Sold
+     *      - Sold -> InRepair -> Sold
+     *      - Any non-Recycled -> Recycled
+     *      Recycled is permanent/terminal: no transitions out of Recycled.
+     * @param productId The ID of the product.
+     * @param newStatus The target Status to transition into.
+     */
+    function updateProductStatus(
+        uint256 productId,
+        Status newStatus
+    ) external {
+        if (productId == 0 || productId > _productIdCounter) {
+            revert ReLife__ProductNotFound(productId);
+        }
+        Product storage product = _products[productId];
+        Status currentStatus = product.status;
+
+        // Recycled is terminal - no transitions allowed after Recycled
+        if (currentStatus == Status.Recycled || product.isRecycled) {
+            revert ReLife__ProductAlreadyRecycled(productId);
+        }
+
+        // Validate allowed state machine transitions
+        bool isValidTransition = false;
+
+        if (currentStatus == Status.Manufactured) {
+            if (newStatus == Status.Sold || newStatus == Status.Recycled) {
+                isValidTransition = true;
+            }
+        } else if (currentStatus == Status.Sold) {
+            if (newStatus == Status.InRepair || newStatus == Status.Recycled) {
+                isValidTransition = true;
+            }
+        } else if (currentStatus == Status.InRepair) {
+            if (newStatus == Status.Sold || newStatus == Status.Recycled) {
+                isValidTransition = true;
+            }
+        }
+
+        if (!isValidTransition) {
+            revert ReLife__InvalidStatusTransition(currentStatus, newStatus);
+        }
+
+        // Validate role authorization for the target status
+        if (newStatus == Status.Sold) {
+            bool isOwner = (msg.sender == product.currentOwner);
+            bool isManufacturer = (msg.sender == product.manufacturer);
+            bool isRepairCenter = hasRole(REPAIR_CENTER_ROLE, msg.sender);
+            bool isAdmin = hasRole(DEFAULT_ADMIN_ROLE, msg.sender);
+
+            if (!isOwner && !isManufacturer && !isRepairCenter && !isAdmin) {
+                revert ReLife__UnauthorizedStatusUpdater(productId, msg.sender);
+            }
+        } else if (newStatus == Status.InRepair) {
+            bool isRepairCenter = hasRole(REPAIR_CENTER_ROLE, msg.sender);
+            bool isOwner = (msg.sender == product.currentOwner);
+            bool isAdmin = hasRole(DEFAULT_ADMIN_ROLE, msg.sender);
+
+            if (!isRepairCenter && !isOwner && !isAdmin) {
+                revert ReLife__UnauthorizedStatusUpdater(productId, msg.sender);
+            }
+        } else if (newStatus == Status.Recycled) {
+            bool isRecycler = hasRole(RECYCLER_ROLE, msg.sender);
+            bool isAdmin = hasRole(DEFAULT_ADMIN_ROLE, msg.sender);
+
+            if (!isRecycler && !isAdmin) {
+                revert ReLife__UnauthorizedStatusUpdater(productId, msg.sender);
+            }
+            product.isRecycled = true;
+        }
+
+        product.status = newStatus;
+
+        emit StatusChanged(
+            productId,
+            currentStatus,
+            newStatus,
+            msg.sender,
+            block.timestamp
+        );
     }
 
     // -------------------------------------------------------------
@@ -542,6 +677,17 @@ contract ReLife is AccessControl {
             revert ReLife__ProductNotFound(productId);
         }
         return _products[productId];
+    }
+
+    /**
+     * @notice Returns current lifecycle status of a product passport.
+     * @param productId The product ID to query.
+     */
+    function getProductStatus(uint256 productId) external view returns (Status) {
+        if (productId == 0 || productId > _productIdCounter) {
+            revert ReLife__ProductNotFound(productId);
+        }
+        return _products[productId].status;
     }
 
     /**

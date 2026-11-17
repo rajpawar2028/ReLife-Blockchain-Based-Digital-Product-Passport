@@ -270,6 +270,15 @@ const ReLifeWallet = {
     if (errorString.includes("ReLife__EmptyString")) {
       return "Missing Input: One or more required text fields were left empty.";
     }
+    if (errorString.includes("ReLife__InvalidStatusTransition")) {
+      return "Invalid Status Move: The requested lifecycle status transition is not permitted by the state machine.";
+    }
+    if (errorString.includes("ReLife__UnauthorizedStatusUpdater")) {
+      return "Unauthorized Status Update: Your connected wallet does not have permission to update this product status.";
+    }
+    if (errorString.includes("ReLife__ProductInRepair")) {
+      return "Product In Repair: Ownership cannot be transferred while the device is actively undergoing certified repair.";
+    }
 
     return err.reason || err.message || "Blockchain transaction failed. Please check your connection and parameters.";
   },
@@ -317,6 +326,10 @@ const ReLifeWallet = {
     const metaUri = toStringSafe(raw.metadataURI !== undefined ? raw.metadataURI : raw[7]);
     const recycled = Boolean(raw.isRecycled !== undefined ? raw.isRecycled : raw[8]);
 
+    const STATUS_MAP = ["Manufactured", "Sold", "InRepair", "Recycled"];
+    const statusVal = toNumber(raw.status !== undefined ? raw.status : raw[9]);
+    const statusName = STATUS_MAP[statusVal] || (recycled ? "Recycled" : "Manufactured");
+
     return {
       id: idNum,
       idStr: idNum.toString(),
@@ -332,6 +345,8 @@ const ReLifeWallet = {
       formattedDateTime: mfgTime > 0 ? new Date(mfgTime * 1000).toLocaleString() : "N/A",
       metadataURI: metaUri,
       isRecycled: recycled,
+      status: statusVal,
+      statusName: statusName,
     };
   },
 

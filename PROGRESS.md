@@ -16,6 +16,18 @@
 
 ---
 
+## Advanced 7-Feature Enhancement Roadmap
+
+- [x] **Feature 1: Product Status State Machine** — Enum `Status { Manufactured, Sold, InRepair, Recycled }`, valid transition enforcement, `StatusChanged` event, terminal `Recycled` locking.
+- [ ] **Feature 2: Warranty with Automatic Expiry Evaluation** — `warrantyStart` and `warrantyEnd` timestamps per product, view `isWarrantyValid(id)` using `block.timestamp`, UI status with days remaining.
+- [ ] **Feature 3: Ownership Transfer with 2-Step Accept** — `initiateTransfer(id, to)`, `acceptTransfer(id)`, `cancelTransfer(id)`, pending owner state, blocked on Recycled/already pending, full custody history.
+- [ ] **Feature 4: Authenticity Secret Hash on Chain** — Off-chain cryptographically random secret generation in backend, on-chain `keccak256(secret)` storage, view `verifySecret(id, secret)`, anti-counterfeiting verification UI.
+- [ ] **Feature 5: Scan Counter & Anomaly Alert** — Backend scan rate-limiting and logging with hashed IPs, `GET /api/scans/:id`, suspicious counterfeit alert thresholds on Verify portal.
+- [ ] **Feature 6: Comprehensive Lifecycle Timeline View** — Event-driven chronological timeline from `ProductRegistered`, `StatusChanged`, `RepairAdded`, `TransferInitiated/Accepted`, `WarrantyAdded`, and `Recycled` using safe DOM `textContent`.
+- [ ] **Feature 7: Mobile-Optimized Camera QR Scanner** — Front-facing/back-facing camera scanning via `html5-qrcode` with clear permissions, fallback ID entry, and query parameter parsing.
+
+---
+
 ## Current Status
 - **Current Phase**: Phase 10 - Final Testing, Gas Profiling & Presentation Readiness (COMPLETE - ALL PHASES FINISHED)
 - **What is done**:

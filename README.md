@@ -21,6 +21,7 @@ Physical consumer products (electronics, luxury goods, industrial machinery) suf
 **ReLife** establishes a verifiable, tamper-evident digital identity for every physical product on the Ethereum blockchain:
 * **Cryptographic Identity**: Each product receives a 1-based sequential on-chain ID anchored to its physical etched serial number and decentralized IPFS metadata (origin, materials, carbon footprint).
 * **Role-Governed Lifecycle**: Granular access control ensures that only authorized manufacturers can mint passports, only certified repair centers can record maintenance, and only licensed recyclers can decommission assets.
+* **Deterministic Status State Machine**: Enforces a formal on-chain state machine (`Manufactured -> Sold -> InRepair -> Recycled`) with invalid move guards, repair transfer locks, and terminal recycling freeze.
 * **Secondary Market Pedigree**: Auditable chain of custody records every owner transition on-chain without exposing customer Personally Identifiable Information (PII).
 * **Terminal Recycling Freeze**: Decommissioned hardware is permanently flagged as recycled on-chain, preventing counterfeit resurrection of discarded serial numbers.
 * **Frictionless Consumer Verification**: Anyone can scan a physical QR code on a smartphone to audit product pedigree and warranty status **without installing a wallet or paying gas fees**.

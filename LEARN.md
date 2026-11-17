@@ -676,3 +676,29 @@ The helper `formatProduct(raw)` in `frontend/js/wallet.js` takes any raw struct 
 
 #### Q3: What is the difference between innerHTML and textContent, and why should user/chain-supplied strings use textContent (XSS)?
 > **Model Answer**: `innerHTML` parses the assigned string as HTML markup and evaluates any embedded tags (such as `<img src=x onerror=...>` or `<script>`), exposing the application to Stored Cross-Site Scripting (XSS) if user-supplied or on-chain data contains malicious payloads. In contrast, `textContent` treats all input strictly as raw, unparsed text and automatically escapes special characters (like `<`, `>`, and `&`), rendering them harmlessly on the page. Therefore, strings originating from smart contracts, events, or IPFS metadata should always be inserted using `textContent` or `innerText` to prevent XSS attacks.
+
+---
+
+## Appendix: Feature 1 — Product Status State Machine
+
+### 1. What is a State Machine in Smart Contracts?
+A **Finite State Machine (FSM)** is a mathematical model of computation where an entity (like a product passport) can only exist in **exactly one state at any given moment** (e.g. `Manufactured`, `Sold`, `InRepair`, `Recycled`). Transitions between states are governed by strict, verifiable transition rules.
+
+In ReLife, we enforce:
+* **Initial State**: Newly minted passports start in `Status.Manufactured`.
+* **Forward Progress**: A product cannot go backwards to `Manufactured` once sold or repaired.
+* **Controlled Servicing**: Products move `Sold -> InRepair -> Sold`. While `InRepair`, ownership transfers are locked.
+* **Terminal Sink State**: `Status.Recycled` is permanent. Once recycled, no transfers, repairs, or warranties can ever be modified again.
+
+---
+
+### 2. Three Viva / Interview Questions You Should Be Able to Answer (State Machines & Enums)
+
+#### Q1: How does Solidity represent an `enum` internally in bytecode and storage, and how does that compare to `uint8`?
+> **Model Answer**: In Solidity, an `enum` is user-defined syntactic sugar that the compiler translates directly into an unsigned integer type (`uint8` if there are 256 or fewer members). The first declared member has an ordinal integer value of `0`, the second `1`, and so on. In storage, an enum variable occupies a single byte within a 32-byte slot, allowing tight packing with other small data types (such as `bool` or `address`). If an out-of-range integer is cast to an enum, the EVM reverts with a Panic error.
+
+#### Q2: What is a "sink state" (or terminal state) in a blockchain state machine, and why is it crucial for a Digital Product Passport?
+> **Model Answer**: A sink state is a state in an FSM that has no outgoing transitions—once an entity enters this state, it can never leave it. In ReLife, `Status.Recycled` is an explicit sink state. It is crucial because when physical hardware is shredded or deconstructed for raw materials, its digital identity must be permanently frozen. If a decommissioned passport could be reverted back to `Sold` or transferred, counterfeiters could clone the serial number and attach it to fake hardware.
+
+#### Q3: Why should state transitions emit an event with both the old and new state (`StatusChanged`), and how does this benefit off-chain indexers?
+> **Model Answer**: Emitting `event StatusChanged(uint256 indexed productId, Status oldStatus, Status newStatus, address indexed actor, uint256 timestamp)` provides an auditable cryptographic log of every lifecycle transition. Because events cost substantially less gas than modifying multiple storage arrays, off-chain clients (The Graph, subgraphs, or backend databases) can reconstruct the full historical timeline of a product by querying logs via `eth_getLogs` without requiring the smart contract to store expensive historical state on-chain.
