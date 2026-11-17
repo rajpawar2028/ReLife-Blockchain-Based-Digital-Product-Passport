@@ -702,3 +702,46 @@ In ReLife, we enforce:
 
 #### Q3: Why should state transitions emit an event with both the old and new state (`StatusChanged`), and how does this benefit off-chain indexers?
 > **Model Answer**: Emitting `event StatusChanged(uint256 indexed productId, Status oldStatus, Status newStatus, address indexed actor, uint256 timestamp)` provides an auditable cryptographic log of every lifecycle transition. Because events cost substantially less gas than modifying multiple storage arrays, off-chain clients (The Graph, subgraphs, or backend databases) can reconstruct the full historical timeline of a product by querying logs via `eth_getLogs` without requiring the smart contract to store expensive historical state on-chain.
+
+---
+
+## Appendix: Feature 2 — Warranty with Automatic Expiry Evaluation
+
+### 1. New Concepts Explained in Plain English
+
+#### Dynamic Expiry Evaluation vs. Web2 Cron Jobs
+In traditional Web2 architectures (Node.js, Python, PostgreSQL), developers run a background cron job (e.g. `node-cron` or Celery) that queries the database every midnight and flips a flag: `UPDATE warranties SET is_expired = true WHERE expiry_date <= NOW()`.
+In Ethereum and smart contracts, **this is impossible and unnecessary**:
+1. **Smart Contracts are Reactive**: A smart contract cannot execute code spontaneously; it only executes when an external account (EOA) initiates a transaction by paying gas.
+2. **Dynamic Evaluation**: Instead of paying gas every day to mark thousands of warranties as expired, we use a `view` function: `isWarrantyValid(productId)`. When queried, the EVM compares `block.timestamp` against `warrantyEnd`. If the timestamp has passed, it returns `false` dynamically. This is **100% free** for consumers and requires zero automated maintenance transactions!
+
+#### Time on the Blockchain: `block.timestamp` & Miner Manipulation
+- In Solidity, `block.timestamp` (an alias for `now` in older compiler versions) returns the UNIX epoch timestamp (seconds elapsed since January 1, 1970) of the block currently being created.
+- **Can validators manipulate time?** Yes, slightly. Under Ethereum Proof-of-Stake (PoS), slots are produced every 12 seconds. A block's timestamp must be strictly greater than the parent block's timestamp and cannot be in the future relative to the validator's local clock (within a strict drift limit, typically 15 seconds).
+- **Security Rule of Thumb**: Never rely on `block.timestamp` for sub-minute or high-precision randomness. For warranties, subscriptions, and product lifecycles measured in days, months, or years, `block.timestamp` is safe, reliable, and industry standard.
+
+#### Hardhat Time Helpers (`@nomicfoundation/hardhat-network-helpers`)
+How do you write an automated test that checks if a 2-year warranty expires, without waiting 2 years?
+Hardhat's local JSON-RPC node allows EVM time travel via special debug RPC methods:
+- `evm_increaseTime`: Tells the local node to fast-forward its virtual clock by $N$ seconds.
+- `evm_mine`: Mines a new block to advance state.
+Hardhat encapsulates this cleanly with `@nomicfoundation/hardhat-network-helpers`:
+```javascript
+const { time } = require("@nomicfoundation/hardhat-network-helpers");
+
+// Fast-forward local blockchain clock by 31 days
+await time.increase(86400 * 31);
+```
+
+---
+
+### 2. Three Viva / Interview Questions You Should Be Able to Answer (Feature 2)
+
+#### Q1: Why can't Ethereum smart contracts run automated "cron jobs" to flip a warranty status from Active to Expired at midnight?
+> **Model Answer**: The Ethereum Virtual Machine (EVM) is a passive, deterministic state machine. It has no continuous background operating system or daemon process; smart contracts only execute when an external account (EOA) or smart account broadcasts a signed transaction and pays gas. Running a daily cron job to update expired records would incur ongoing gas costs and hit transaction gas limits. Instead, Web3 applications use read-only `view` functions (like `isWarrantyValid`) to dynamically compare `block.timestamp` against the expiration timestamp on demand at zero gas cost.
+
+#### Q2: What is validator timestamp manipulation, and why is `block.timestamp` acceptable for warranty tracking but not for high-stakes randomness?
+> **Model Answer**: In Ethereum Proof-of-Stake, the block proposer (validator) assigns the block timestamp. The consensus rules require the timestamp to be greater than the parent block's timestamp and reasonably close to real-world time (consensus nodes reject blocks timestamped too far into the future). Because a validator has slight leeway (a few seconds) to tweak the timestamp, `block.timestamp` must never be used as a pseudo-random seed in lotteries or front-running-sensitive financial conditions. However, for real-world warranty tracking spanning months or years, a variance of a few seconds is completely negligible, making `block.timestamp` entirely secure and standard.
+
+#### Q3: How do Hardhat network helpers (`time.increase`, `time.latest`) work under the hood when testing time-dependent Solidity logic?
+> **Model Answer**: Under the hood, Hardhat runs an in-memory Ethereum node implementing custom non-standard JSON-RPC methods. When `time.increase(seconds)` is called, Hardhat dispatches the `evm_increaseTime` RPC call with the requested number of seconds, followed by `evm_mine`. This adjusts the internal block clock offset of the virtual node and creates a new block whose `block.timestamp` reflects the future time. When our test queries `isWarrantyValid(id)`, the EVM executes against this advanced timestamp, allowing instantaneous verification of multi-year lifecycles in milliseconds.

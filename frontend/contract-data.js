@@ -50,6 +50,22 @@ window.RELIFE_CONFIG = {
     {
       "inputs": [
         {
+          "internalType": "enum ReLife.Status",
+          "name": "currentStatus",
+          "type": "uint8"
+        },
+        {
+          "internalType": "enum ReLife.Status",
+          "name": "attemptedStatus",
+          "type": "uint8"
+        }
+      ],
+      "name": "ReLife__InvalidStatusTransition",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "uint256",
           "name": "expiryTimestamp",
           "type": "uint256"
@@ -93,6 +109,17 @@ window.RELIFE_CONFIG = {
           "type": "uint256"
         }
       ],
+      "name": "ReLife__ProductInRepair",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "productId",
+          "type": "uint256"
+        }
+      ],
       "name": "ReLife__ProductNotFound",
       "type": "error"
     },
@@ -105,6 +132,22 @@ window.RELIFE_CONFIG = {
         }
       ],
       "name": "ReLife__SerialAlreadyExists",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "productId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "caller",
+          "type": "address"
+        }
+      ],
+      "name": "ReLife__UnauthorizedStatusUpdater",
       "type": "error"
     },
     {
@@ -461,6 +504,43 @@ window.RELIFE_CONFIG = {
         },
         {
           "indexed": false,
+          "internalType": "enum ReLife.Status",
+          "name": "oldStatus",
+          "type": "uint8"
+        },
+        {
+          "indexed": false,
+          "internalType": "enum ReLife.Status",
+          "name": "newStatus",
+          "type": "uint8"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "actor",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        }
+      ],
+      "name": "StatusChanged",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "productId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
           "internalType": "uint256",
           "name": "expiryTimestamp",
           "type": "uint256"
@@ -721,6 +801,11 @@ window.RELIFE_CONFIG = {
               "internalType": "bool",
               "name": "isRecycled",
               "type": "bool"
+            },
+            {
+              "internalType": "enum ReLife.Status",
+              "name": "status",
+              "type": "uint8"
             }
           ],
           "internalType": "struct ReLife.Product",
@@ -787,6 +872,11 @@ window.RELIFE_CONFIG = {
               "internalType": "bool",
               "name": "isRecycled",
               "type": "bool"
+            },
+            {
+              "internalType": "enum ReLife.Status",
+              "name": "status",
+              "type": "uint8"
             }
           ],
           "internalType": "struct ReLife.Product",
@@ -848,6 +938,25 @@ window.RELIFE_CONFIG = {
           "internalType": "struct ReLife.RepairRecord[]",
           "name": "",
           "type": "tuple[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "productId",
+          "type": "uint256"
+        }
+      ],
+      "name": "getProductStatus",
+      "outputs": [
+        {
+          "internalType": "enum ReLife.Status",
+          "name": "",
+          "type": "uint8"
         }
       ],
       "stateMutability": "view",
@@ -969,6 +1078,16 @@ window.RELIFE_CONFIG = {
           "components": [
             {
               "internalType": "uint256",
+              "name": "warrantyStart",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "warrantyEnd",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
               "name": "expiryTimestamp",
               "type": "uint256"
             },
@@ -1052,6 +1171,25 @@ window.RELIFE_CONFIG = {
         }
       ],
       "name": "isSerialRegistered",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "productId",
+          "type": "uint256"
+        }
+      ],
+      "name": "isWarrantyValid",
       "outputs": [
         {
           "internalType": "bool",
@@ -1189,6 +1327,39 @@ window.RELIFE_CONFIG = {
     {
       "inputs": [
         {
+          "internalType": "uint256",
+          "name": "productId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "warrantyStart",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "warrantyEnd",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "warrantyType",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "termsUri",
+          "type": "string"
+        }
+      ],
+      "name": "setProductWarranty",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "bytes4",
           "name": "interfaceId",
           "type": "bytes4"
@@ -1219,6 +1390,24 @@ window.RELIFE_CONFIG = {
         }
       ],
       "name": "transferOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "productId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "enum ReLife.Status",
+          "name": "newStatus",
+          "type": "uint8"
+        }
+      ],
+      "name": "updateProductStatus",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"

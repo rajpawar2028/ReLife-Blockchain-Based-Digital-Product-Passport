@@ -73,7 +73,9 @@ contract ReLife is AccessControl {
     }
 
     struct Warranty {
-        uint256 expiryTimestamp;
+        uint256 warrantyStart;
+        uint256 warrantyEnd;
+        uint256 expiryTimestamp; // Preserved for backward compatibility (= warrantyEnd)
         string warrantyType;    // e.g., "Standard 2-Year", "Extended Protection"
         string termsUri;        // IPFS URI to policy terms & coverage document
         bool isActive;
@@ -401,8 +403,81 @@ contract ReLife is AccessControl {
     }
 
     /**
-     * @notice Attaches or updates product warranty details.
-     * @dev Restricted to the original manufacturer or contract admin.
+     * @notice Internal helper to attach or update warranty records.
+     * @param productId The ID of the product.
+     * @param warrantyStart UNIX timestamp when coverage begins.
+     * @param warrantyEnd UNIX timestamp when coverage expires.
+     * @param warrantyType Title/tier (e.g. "Standard 2-Year Limited", "Care+").
+     * @param termsUri IPFS URI containing policy documents and terms.
+     */
+    function _setWarranty(
+        uint256 productId,
+        uint256 warrantyStart,
+        uint256 warrantyEnd,
+        string calldata warrantyType,
+        string calldata termsUri
+    ) internal {
+        if (productId == 0 || productId > _productIdCounter) {
+            revert ReLife__ProductNotFound(productId);
+        }
+        if (_products[productId].isRecycled || _products[productId].status == Status.Recycled) {
+            revert ReLife__ProductAlreadyRecycled(productId);
+        }
+
+        bool isManufacturer = (msg.sender == _products[productId].manufacturer);
+        bool isAdmin = hasRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        bool isOwner = (msg.sender == _products[productId].currentOwner);
+        if (!isManufacturer && !isAdmin && !isOwner) {
+            revert ReLife__UnauthorizedWarrantyIssuer(productId, msg.sender);
+        }
+
+        if (warrantyEnd <= block.timestamp || warrantyEnd <= warrantyStart) {
+            revert ReLife__InvalidWarrantyExpiry(warrantyEnd);
+        }
+        if (bytes(warrantyType).length == 0) {
+            revert ReLife__EmptyString("warrantyType");
+        }
+
+        _productWarranties[productId] = Warranty({
+            warrantyStart: warrantyStart,
+            warrantyEnd: warrantyEnd,
+            expiryTimestamp: warrantyEnd,
+            warrantyType: warrantyType,
+            termsUri: termsUri,
+            isActive: true
+        });
+
+        emit WarrantyAdded(
+            productId,
+            warrantyEnd,
+            warrantyType,
+            termsUri,
+            msg.sender
+        );
+    }
+
+    /**
+     * @notice Attaches or updates product warranty details with explicit start and end timestamps.
+     * @dev Restricted to the original manufacturer, authorized seller (current owner), or contract admin.
+     * @param productId The ID of the product.
+     * @param warrantyStart Timestamp when coverage begins.
+     * @param warrantyEnd Future UNIX timestamp when warranty expires.
+     * @param warrantyType Title/tier (e.g. "Standard 2-Year Limited", "Care+").
+     * @param termsUri IPFS URI containing policy documents and terms.
+     */
+    function setProductWarranty(
+        uint256 productId,
+        uint256 warrantyStart,
+        uint256 warrantyEnd,
+        string calldata warrantyType,
+        string calldata termsUri
+    ) external {
+        _setWarranty(productId, warrantyStart, warrantyEnd, warrantyType, termsUri);
+    }
+
+    /**
+     * @notice Attaches or updates product warranty details defaulting start to current block timestamp.
+     * @dev Restricted to the original manufacturer, authorized seller (current owner), or contract admin.
      * @param productId The ID of the product.
      * @param expiryTimestamp Future UNIX timestamp when warranty expires.
      * @param warrantyType Title/tier (e.g. "Standard 2-Year Limited", "Care+").
@@ -414,40 +489,7 @@ contract ReLife is AccessControl {
         string calldata warrantyType,
         string calldata termsUri
     ) external {
-        if (productId == 0 || productId > _productIdCounter) {
-            revert ReLife__ProductNotFound(productId);
-        }
-        if (_products[productId].isRecycled || _products[productId].status == Status.Recycled) {
-            revert ReLife__ProductAlreadyRecycled(productId);
-        }
-
-        bool isManufacturer = (msg.sender == _products[productId].manufacturer);
-        bool isAdmin = hasRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        if (!isManufacturer && !isAdmin) {
-            revert ReLife__UnauthorizedWarrantyIssuer(productId, msg.sender);
-        }
-
-        if (expiryTimestamp <= block.timestamp) {
-            revert ReLife__InvalidWarrantyExpiry(expiryTimestamp);
-        }
-        if (bytes(warrantyType).length == 0) {
-            revert ReLife__EmptyString("warrantyType");
-        }
-
-        _productWarranties[productId] = Warranty({
-            expiryTimestamp: expiryTimestamp,
-            warrantyType: warrantyType,
-            termsUri: termsUri,
-            isActive: true
-        });
-
-        emit WarrantyAdded(
-            productId,
-            expiryTimestamp,
-            warrantyType,
-            termsUri,
-            msg.sender
-        );
+        _setWarranty(productId, block.timestamp, expiryTimestamp, warrantyType, termsUri);
     }
 
     // -------------------------------------------------------------
@@ -732,6 +774,26 @@ contract ReLife is AccessControl {
     }
 
     /**
+     * @notice Returns whether the product currently has a valid, unexpired warranty.
+     * @dev Uses block.timestamp to check if current time is within [warrantyStart, warrantyEnd).
+     * @param productId The product ID to query.
+     */
+    function isWarrantyValid(uint256 productId) public view returns (bool) {
+        if (productId == 0 || productId > _productIdCounter) {
+            revert ReLife__ProductNotFound(productId);
+        }
+        Product memory p = _products[productId];
+        if (p.isRecycled || p.status == Status.Recycled) {
+            return false;
+        }
+        Warranty memory w = _productWarranties[productId];
+        if (!w.isActive || w.warrantyEnd == 0) {
+            return false;
+        }
+        return (block.timestamp >= w.warrantyStart && block.timestamp < w.warrantyEnd);
+    }
+
+    /**
      * @notice Returns warranty information and calculates if expired based on current block timestamp.
      * @param productId The product ID to query.
      */
@@ -742,7 +804,7 @@ contract ReLife is AccessControl {
             revert ReLife__ProductNotFound(productId);
         }
         Warranty memory w = _productWarranties[productId];
-        bool expired = (w.expiryTimestamp > 0 && block.timestamp >= w.expiryTimestamp);
+        bool expired = (w.warrantyEnd > 0 && block.timestamp >= w.warrantyEnd);
         return (w, expired);
     }
 

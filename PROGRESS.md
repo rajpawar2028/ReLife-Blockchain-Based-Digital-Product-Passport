@@ -19,7 +19,7 @@
 ## Advanced 7-Feature Enhancement Roadmap
 
 - [x] **Feature 1: Product Status State Machine** — Enum `Status { Manufactured, Sold, InRepair, Recycled }`, valid transition enforcement, `StatusChanged` event, terminal `Recycled` locking.
-- [ ] **Feature 2: Warranty with Automatic Expiry Evaluation** — `warrantyStart` and `warrantyEnd` timestamps per product, view `isWarrantyValid(id)` using `block.timestamp`, UI status with days remaining.
+- [x] **Feature 2: Warranty with Automatic Expiry Evaluation** — `warrantyStart` and `warrantyEnd` timestamps per product, view `isWarrantyValid(id)` using `block.timestamp`, UI status with days remaining.
 - [ ] **Feature 3: Ownership Transfer with 2-Step Accept** — `initiateTransfer(id, to)`, `acceptTransfer(id)`, `cancelTransfer(id)`, pending owner state, blocked on Recycled/already pending, full custody history.
 - [ ] **Feature 4: Authenticity Secret Hash on Chain** — Off-chain cryptographically random secret generation in backend, on-chain `keccak256(secret)` storage, view `verifySecret(id, secret)`, anti-counterfeiting verification UI.
 - [ ] **Feature 5: Scan Counter & Anomaly Alert** — Backend scan rate-limiting and logging with hashed IPs, `GET /api/scans/:id`, suspicious counterfeit alert thresholds on Verify portal.
@@ -29,22 +29,18 @@
 ---
 
 ## Current Status
-- **Current Phase**: Phase 10 - Final Testing, Gas Profiling & Presentation Readiness (COMPLETE - ALL PHASES FINISHED)
+- **Current Phase**: Advanced 7-Feature Roadmap — Feature 2 Completed (Feature 3 Ready)
 - **What is done**:
-  - Implemented automated gas profiling suite `test/gasReport.test.js` measuring exact EVM gas consumption for deployment, minting, repairs, ownership transfers, warranties, and decommissioning.
-  - Documented complete EVM gas analysis and optimization benchmarks in `README.md`.
-  - Created Mermaid and ASCII system architecture diagrams in `README.md` visualizing frontend portals, Web3 wallet layer, Express Pinata proxy backend, and Ethereum smart contract.
-  - Authored comprehensive 5-minute presentation & viva defense script `DEMO_SCRIPT.md` with exact step-by-step sample data for live evaluation.
-  - Added Phase 10 concept breakdown and 3 final viva questions (covering end-to-end data flow, gas optimizations, and Layer 2 rollup scalability) to `LEARN.md` (now totaling 36 viva questions across all 10 phases and appendices).
-  - Hardened Sepolia network configuration: created `.env` template, added pre-flight network inspector `scripts/checkNetwork.js`, fail-fast configuration checks in `hardhat.config.js`, and bytecode pre-flight check in `admin.js`.
-  - Fixed Manufacturer Portal serial number rendering bug (`[object Object]` -> real serial string `SN-CRN-2056-5823`) by querying `contract.getProduct()` to resolve plaintext strings from on-chain storage instead of reading `keccak256` hashed event topics.
-  - Implemented shared `ReLifeWallet.formatProduct(raw)` helper in `frontend/js/wallet.js` to normalize Ethers v6 Result objects, cast BigInts, format timestamps, and prevent object coercion bugs.
-  - Replaced naked `innerHTML` table string interpolation with safe DOM element construction and `textContent` in `manufacturer.js` to eliminate XSS risks.
-  - Updated `owner.js` to leverage `formatProduct` for clean struct formatting.
-  - Recorded architectural decisions in `DECISIONS.md`.
-  - Ran full test suite across 10 test suites: **116 passing tests** with 100% success rate.
-- **What is broken / blockers**: None. All 10 phases completed and verified.
-- **Next Step**: Project ready for live presentation, evaluation, and viva defense.
+  - **Feature 1 (Product Status State Machine)**: Integrated `enum Status { Manufactured, Sold, InRepair, Recycled }`, `updateProductStatus`, `getProductStatus`, and `StatusChanged` events with 15 dedicated Hardhat tests.
+  - **Feature 2 (Warranty with Automatic Expiry Evaluation)**:
+    - Added `warrantyStart` and `warrantyEnd` timestamps to `struct Warranty` in `contracts/ReLife.sol`, preserving `expiryTimestamp` for backward compatibility.
+    - Implemented internal `_setWarranty`, `setProductWarranty(productId, start, end, type, uri)`, and backward-compatible `addWarranty(productId, expiry, type, uri)` callable by manufacturer, admin, or current owner (authorized seller).
+    - Created gas-free `isWarrantyValid(uint256 productId)` public view function using `block.timestamp`.
+    - Added 14 comprehensive unit tests in `test/WarrantyExpiry.test.js` validating issuance, automatic expiration via `time.increase`, recycled lockout, and input validations.
+    - Updated `frontend/js/owner.js` and `frontend/js/product.js` to dynamically compute `daysLeft` and display `Valid (${daysLeft} days left)` or `Expired`.
+  - Ran full test suite across 12 test suites: **145 passing tests** with 100% success rate.
+- **What is broken / blockers**: None. All 145 tests passing cleanly.
+- **Next Step**: Feature 3: Ownership Transfer with 2-Step Accept (`initiateTransfer`, `acceptTransfer`, `cancelTransfer`).
 - **GitHub Repository**: [https://github.com/rajpawar2028/ReLife-Blockchain-Based-Digital-Product-Passport](https://github.com/rajpawar2028/ReLife-Blockchain-Based-Digital-Product-Passport)
   - Security audit verified 0 secrets leaked (`.env` strictly excluded).
   - Clean commit history under author Raj Pawar (`rajvirajpawar@gmail.com`).

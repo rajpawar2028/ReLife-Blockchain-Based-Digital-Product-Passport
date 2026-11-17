@@ -23,6 +23,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const viewProdOwner = document.getElementById("viewProdOwner");
   const viewProdDate = document.getElementById("viewProdDate");
   const viewProdIpfs = document.getElementById("viewProdIpfs");
+  const viewProdWarranty = document.getElementById("viewProdWarranty");
   const recycledBadge = document.getElementById("recycledBadge");
   const qrcodeContainer = document.getElementById("qrcodeContainer");
 
@@ -231,6 +232,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       // Fetch Verifiable Repair History
       await loadRepairHistory(contract, pId);
 
+      // Fetch Verifiable Warranty Status
+      await loadWarrantyStatus(contract, pId);
+
       showPassport();
     } catch (err) {
       console.error("Verification error:", err);
@@ -357,6 +361,31 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.warn("Could not query repair history:", err.message);
       noRepairsNotice.style.display = "block";
       repairTimeline.style.display = "none";
+    }
+  }
+
+  /**
+   * Loads and displays warranty status from contract
+   */
+  async function loadWarrantyStatus(contract, productId) {
+    if (!viewProdWarranty) return;
+    try {
+      const [warranty, isExpired] = await contract.getWarranty(productId);
+      const endTs = Number(warranty?.warrantyEnd || warranty?.expiryTimestamp || 0n);
+      if (warranty && endTs > 0) {
+        const nowTs = Math.floor(Date.now() / 1000);
+        const daysLeft = Math.max(0, Math.ceil((endTs - nowTs) / 86400));
+        if (isExpired || nowTs >= endTs) {
+          viewProdWarranty.innerHTML = `<span class="badge badge-danger">Expired</span>`;
+        } else {
+          viewProdWarranty.innerHTML = `<span class="badge badge-success">Valid (${daysLeft} day${daysLeft === 1 ? '' : 's'} left)</span>`;
+        }
+      } else {
+        viewProdWarranty.innerHTML = `<span class="badge badge-secondary" style="background:rgba(255,255,255,0.08);">No Warranty</span>`;
+      }
+    } catch (err) {
+      console.warn("Could not query warranty status:", err.message);
+      viewProdWarranty.innerHTML = `<span class="badge badge-secondary" style="background:rgba(255,255,255,0.08);">No Warranty</span>`;
     }
   }
 
