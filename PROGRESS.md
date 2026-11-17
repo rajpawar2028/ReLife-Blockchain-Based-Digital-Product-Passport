@@ -21,7 +21,7 @@
 - [x] **Feature 1: Product Status State Machine** — Enum `Status { Manufactured, Sold, InRepair, Recycled }`, valid transition enforcement, `StatusChanged` event, terminal `Recycled` locking.
 - [x] **Feature 2: Warranty with Automatic Expiry Evaluation** — `warrantyStart` and `warrantyEnd` timestamps per product, view `isWarrantyValid(id)` using `block.timestamp`, UI status with days remaining.
 - [x] **Feature 3: Ownership Transfer with 2-Step Accept** — `initiateTransfer(id, to)`, `acceptTransfer(id)`, `cancelTransfer(id)`, pending owner state, blocked on Recycled/already pending, full custody history.
-- [ ] **Feature 4: Authenticity Secret Hash on Chain** — Off-chain cryptographically random secret generation in backend, on-chain `keccak256(secret)` storage, view `verifySecret(id, secret)`, anti-counterfeiting verification UI.
+- [x] **Feature 4: Authenticity Secret Hash on Chain** — Off-chain cryptographically random secret generation in backend, on-chain `keccak256(secret)` storage, view `verifySecret(id, secret)`, anti-counterfeiting verification UI.
 - [ ] **Feature 5: Scan Counter & Anomaly Alert** — Backend scan rate-limiting and logging with hashed IPs, `GET /api/scans/:id`, suspicious counterfeit alert thresholds on Verify portal.
 - [ ] **Feature 6: Comprehensive Lifecycle Timeline View** — Event-driven chronological timeline from `ProductRegistered`, `StatusChanged`, `RepairAdded`, `TransferInitiated/Accepted`, `WarrantyAdded`, and `Recycled` using safe DOM `textContent`.
 - [ ] **Feature 7: Mobile-Optimized Camera QR Scanner** — Front-facing/back-facing camera scanning via `html5-qrcode` with clear permissions, fallback ID entry, and query parameter parsing.
@@ -29,19 +29,20 @@
 ---
 
 ## Current Status
-- **Current Phase**: Advanced 7-Feature Roadmap — Feature 3 Completed (Feature 4 Ready)
+- **Current Phase**: Advanced 7-Feature Roadmap — Feature 4 Completed (Feature 5 Ready)
 - **What is done**:
   - **Feature 1 (Product Status State Machine)**: Integrated `enum Status { Manufactured, Sold, InRepair, Recycled }`, `updateProductStatus`, `getProductStatus`, and `StatusChanged` events with 15 dedicated Hardhat tests.
   - **Feature 2 (Warranty with Automatic Expiry Evaluation)**: Integrated `warrantyStart` and `warrantyEnd`, `setProductWarranty`, gas-free `isWarrantyValid(id)` view method, countdown UI display, and 14 dedicated Hardhat tests.
-  - **Feature 3 (Ownership Transfer with 2-Step Accept)**:
-    - Added `_pendingOwners` mapping, `initiateTransfer(id, to)`, `acceptTransfer(id)`, `cancelTransfer(id)`, and `getPendingOwner(id)`.
-    - Enforced mutation and concurrency locks: prevents self-transfer, zero address, double-pending transfers, and transfers during `InRepair` or terminal `Recycled` states.
-    - Emitted `TransferInitiated`, `TransferAccepted`, `TransferCancelled`, and backward-compatible `OwnershipTransferred` events.
-    - Updated `frontend/owner.html` and `frontend/js/owner.js` with an "Incoming Transfers Awaiting Acceptance" inbox and cancellation controls.
-    - Added 16 comprehensive unit tests in `test/TransferAccept.test.js`.
-  - Ran full test suite across 13 test suites: **161 passing tests** with 100% success rate.
-- **What is broken / blockers**: None. All 161 tests passing cleanly.
-- **Next Step**: Feature 4: Authenticity Secret (Hash Stored On-Chain, view `verifySecret`).
+  - **Feature 3 (Ownership Transfer with 2-Step Accept)**: Integrated `_pendingOwners`, `initiateTransfer`, `acceptTransfer`, `cancelTransfer`, two-way dashboard inbox, and 16 dedicated Hardhat tests.
+  - **Feature 4 (Authenticity Secret Hash on Chain)**:
+    - Express endpoint `GET /api/authenticity/generate-secret` generating ephemeral 32-byte cryptographic random secrets (`crypto.randomBytes`) and `keccak256` hashes with zero persistence (no logging, no DB storage).
+    - On-chain storage of `keccak256(secret)` in `_authenticityHashes` via `registerProductWithSecret` and `setAuthenticityHash`. Plaintext secret is never sent to contract or emitted in events.
+    - Gas-free view method `verifySecret(productId, secret)` comparing hashes on-chain.
+    - Updated `frontend/product.html` and `frontend/js/product.js` to parse secrets from QR URLs or manual inputs, dynamically showing "Authentic" or "Not matching".
+    - Added 10 comprehensive tests in `test/AuthenticitySecret.test.js` validating cryptographic checks and secret isolation.
+  - Ran full test suite across 14 test suites: **171 passing tests** with 100% success rate.
+- **What is broken / blockers**: None. All 171 tests passing cleanly.
+- **Next Step**: Feature 5: Scan Counter and Counterfeit Alert (Express backend scan logging with hashed IPs, rate limiting, and alert threshold banner).
 - **GitHub Repository**: [https://github.com/rajpawar2028/ReLife-Blockchain-Based-Digital-Product-Passport](https://github.com/rajpawar2028/ReLife-Blockchain-Based-Digital-Product-Passport)
   - Security audit verified 0 secrets leaked (`.env` strictly excluded).
   - Clean commit history under author Raj Pawar (`rajvirajpawar@gmail.com`).

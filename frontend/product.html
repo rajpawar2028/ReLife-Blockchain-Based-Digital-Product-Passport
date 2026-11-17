@@ -199,6 +199,7 @@
       <label for="productIdInput">Look Up Product Passport (by ID or Serial Number):</label>
       <div class="search-inputs">
         <input type="text" id="productIdInput" placeholder="Enter Product ID (e.g. 1) or Serial Number (e.g. SN-...)">
+        <input type="text" id="secretInput" placeholder="Authenticity Secret (Optional / from QR)" style="max-width: 280px;">
         <button id="verifyBtn" class="btn btn-primary">Verify Passport</button>
         <button id="toggleScannerBtn" class="btn btn-secondary">
           &#128247; Scan QR Code
@@ -244,6 +245,9 @@
         <div>
           <span id="authenticityBadge" class="badge badge-success" style="font-size: 0.85rem; padding: 0.35rem 0.75rem; margin-bottom: 0.5rem;">
             &#10003; VERIFIED AUTHENTIC PASSPORT
+          </span>
+          <span id="secretBadge" class="badge" style="display: none; font-size: 0.85rem; padding: 0.35rem 0.75rem; margin-bottom: 0.5rem; margin-left: 0.35rem;">
+            Authentic
           </span>
           <span id="recycledBadge" class="badge badge-danger" style="display: none; font-size: 0.85rem; padding: 0.35rem 0.75rem; margin-bottom: 0.5rem;">
             &#9851; RECYCLED / DECOMMISSIONED

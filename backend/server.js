@@ -4,6 +4,7 @@ const path = require("path");
 require("dotenv").config();
 
 const ipfsRouter = require("./routes/ipfs");
+const authenticityRouter = require("./routes/authenticity");
 const pinataService = require("./pinataService");
 
 const app = express();
@@ -32,6 +33,9 @@ app.get("/api/health", (req, res) => {
 
 // IPFS upload routes
 app.use("/api/ipfs", ipfsRouter);
+
+// Authenticity secret generation routes
+app.use("/api/authenticity", authenticityRouter);
 
 // Centralized error handling middleware
 app.use((err, req, res, next) => {

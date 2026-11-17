@@ -5,6 +5,7 @@
 
 document.addEventListener("DOMContentLoaded", async () => {
   const productIdInput = document.getElementById("productIdInput");
+  const secretInput = document.getElementById("secretInput");
   const verifyBtn = document.getElementById("verifyBtn");
   const toggleScannerBtn = document.getElementById("toggleScannerBtn");
   const closeScannerBtn = document.getElementById("closeScannerBtn");
@@ -24,6 +25,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   const viewProdDate = document.getElementById("viewProdDate");
   const viewProdIpfs = document.getElementById("viewProdIpfs");
   const viewProdWarranty = document.getElementById("viewProdWarranty");
+  const authenticityBadge = document.getElementById("authenticityBadge");
+  const secretBadge = document.getElementById("secretBadge");
   const recycledBadge = document.getElementById("recycledBadge");
   const qrcodeContainer = document.getElementById("qrcodeContainer");
 
@@ -78,10 +81,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   }
 
-  // 1. Check for URL Query Param (?id=N or ?serial=SN...)
+  // 1. Check for URL Query Param (?id=N or ?serial=SN... and optional &secret=...)
   const urlParams = new URLSearchParams(window.location.search);
   const idFromUrl = urlParams.get("id");
   const serialFromUrl = urlParams.get("serial");
+  const secretFromUrl = urlParams.get("secret");
+
+  if (secretFromUrl && secretInput) {
+    secretInput.value = secretFromUrl;
+  }
 
   if (idFromUrl) {
     productIdInput.value = idFromUrl;
@@ -112,6 +120,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  if (secretInput) {
+    secretInput.addEventListener("keypress", async (e) => {
+      if (e.key === "Enter") {
+        verifyBtn.click();
+      }
+    });
+  }
+
   // 3. Camera Scanner Controls
   toggleScannerBtn.addEventListener("click", () => {
     startCameraScanner();
@@ -139,6 +155,10 @@ document.addEventListener("DOMContentLoaded", async () => {
           try {
             const url = new URL(decodedText);
             const scannedId = url.searchParams.get("id");
+            const scannedSecret = url.searchParams.get("secret");
+            if (scannedSecret && secretInput) {
+              secretInput.value = scannedSecret;
+            }
             if (scannedId) {
               productIdInput.value = scannedId;
               verifyProductPassport(scannedId);
@@ -234,6 +254,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       // Fetch Verifiable Warranty Status
       await loadWarrantyStatus(contract, pId);
+
+      // Verify Authenticity Secret if provided
+      await loadAuthenticitySecret(contract, pId);
 
       showPassport();
     } catch (err) {
@@ -386,6 +409,37 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch (err) {
       console.warn("Could not query warranty status:", err.message);
       viewProdWarranty.innerHTML = `<span class="badge badge-secondary" style="background:rgba(255,255,255,0.08);">No Warranty</span>`;
+    }
+  }
+
+  /**
+   * Verifies off-chain authenticity secret against on-chain hash
+   */
+  async function loadAuthenticitySecret(contract, productId) {
+    if (!secretBadge) return;
+    const secret = (secretInput ? secretInput.value.trim() : "") || urlParams.get("secret");
+
+    if (!secret) {
+      secretBadge.style.display = "none";
+      return;
+    }
+
+    try {
+      const isAuthentic = await contract.verifySecret(productId, secret);
+      secretBadge.style.display = "inline-flex";
+
+      if (isAuthentic) {
+        secretBadge.className = "badge badge-success";
+        secretBadge.innerHTML = "&#10003; Authentic";
+      } else {
+        secretBadge.className = "badge badge-danger";
+        secretBadge.innerHTML = "&#9888; Not matching";
+      }
+    } catch (err) {
+      console.warn("Secret verification error:", err);
+      secretBadge.style.display = "inline-flex";
+      secretBadge.className = "badge badge-danger";
+      secretBadge.innerHTML = "&#9888; Not matching";
     }
   }
 

@@ -190,6 +190,22 @@ window.RELIFE_CONFIG = {
           "type": "address"
         }
       ],
+      "name": "ReLife__UnauthorizedManufacturer",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "productId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address",
+          "name": "caller",
+          "type": "address"
+        }
+      ],
       "name": "ReLife__UnauthorizedStatusUpdater",
       "type": "error"
     },
@@ -879,6 +895,25 @@ window.RELIFE_CONFIG = {
           "type": "uint256"
         }
       ],
+      "name": "getAuthenticityHash",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "productId",
+          "type": "uint256"
+        }
+      ],
       "name": "getOwnershipHistory",
       "outputs": [
         {
@@ -1454,6 +1489,45 @@ window.RELIFE_CONFIG = {
     {
       "inputs": [
         {
+          "internalType": "string",
+          "name": "serialNumber",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "modelName",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "brand",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "metadataURI",
+          "type": "string"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "authenticityHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "registerProductWithSecret",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "address",
           "name": "account",
           "type": "address"
@@ -1519,6 +1593,24 @@ window.RELIFE_CONFIG = {
         }
       ],
       "name": "revokeRole",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "productId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "authenticityHash",
+          "type": "bytes32"
+        }
+      ],
+      "name": "setAuthenticityHash",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"
@@ -1664,6 +1756,30 @@ window.RELIFE_CONFIG = {
         {
           "internalType": "bool",
           "name": "isRecycled",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "productId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "secret",
+          "type": "string"
+        }
+      ],
+      "name": "verifySecret",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "isAuthentic",
           "type": "bool"
         }
       ],

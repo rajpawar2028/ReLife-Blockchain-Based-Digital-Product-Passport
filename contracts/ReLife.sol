@@ -35,6 +35,7 @@ contract ReLife is AccessControl {
     error ReLife__TransferAlreadyPending(uint256 productId, address pendingOwner);
     error ReLife__NoTransferPending(uint256 productId);
     error ReLife__NotPendingOwner(uint256 productId, address caller);
+    error ReLife__UnauthorizedManufacturer(uint256 productId, address caller);
 
     // -------------------------------------------------------------
     // DATA STRUCTURES
@@ -121,6 +122,9 @@ contract ReLife is AccessControl {
 
     // Mapping from product ID to RecyclingRecord (end-of-life deconstruction record)
     mapping(uint256 => RecyclingRecord) private _productRecyclingRecords;
+
+    // Mapping from product ID to keccak256 hash of the off-chain authenticity secret
+    mapping(uint256 => bytes32) private _authenticityHashes;
 
     // -------------------------------------------------------------
     // EVENTS
@@ -301,12 +305,12 @@ contract ReLife is AccessControl {
      * @param metadataURI IPFS URI containing comprehensive metadata, bill of materials, carbon footprint.
      * @return productId The unique auto-incremented ID assigned to the new product.
      */
-    function registerProduct(
+    function _registerProduct(
         string calldata serialNumber,
         string calldata modelName,
         string calldata brand,
         string calldata metadataURI
-    ) external onlyRole(MANUFACTURER_ROLE) returns (uint256) {
+    ) internal returns (uint256) {
         if (bytes(serialNumber).length == 0) {
             revert ReLife__EmptyString("serialNumber");
         }
@@ -363,6 +367,73 @@ contract ReLife is AccessControl {
         );
 
         return newProductId;
+    }
+
+    /**
+     * @notice Registers a new physical product on-chain with its digital passport.
+     * @dev Only accounts with MANUFACTURER_ROLE can call this function.
+     * @param serialNumber Globally unique serial number printed on the physical product / tag.
+     * @param modelName Model name or identifier (e.g., "EcoBook Pro 14").
+     * @param brand Brand name (e.g., "CircuTech").
+     * @param metadataURI IPFS URI containing comprehensive metadata, bill of materials, carbon footprint.
+     * @return productId The unique auto-incremented ID assigned to the new product.
+     */
+    function registerProduct(
+        string calldata serialNumber,
+        string calldata modelName,
+        string calldata brand,
+        string calldata metadataURI
+    ) external onlyRole(MANUFACTURER_ROLE) returns (uint256) {
+        return _registerProduct(serialNumber, modelName, brand, metadataURI);
+    }
+
+    /**
+     * @notice Registers a product passport along with its keccak256 authenticity hash.
+     * @dev Restricted to MANUFACTURER_ROLE. Stores only the hash on-chain, never the raw secret.
+     * @param serialNumber Globally unique physical serial number.
+     * @param modelName Model name or identifier.
+     * @param brand Brand name.
+     * @param metadataURI IPFS metadata URI.
+     * @param authenticityHash keccak256 hash of the off-chain secret (keccak256(secret)).
+     * @return productId The unique ID assigned to the new product.
+     */
+    function registerProductWithSecret(
+        string calldata serialNumber,
+        string calldata modelName,
+        string calldata brand,
+        string calldata metadataURI,
+        bytes32 authenticityHash
+    ) external onlyRole(MANUFACTURER_ROLE) returns (uint256) {
+        uint256 newProductId = _registerProduct(serialNumber, modelName, brand, metadataURI);
+        if (authenticityHash != bytes32(0)) {
+            _authenticityHashes[newProductId] = authenticityHash;
+        }
+        return newProductId;
+    }
+
+    /**
+     * @notice Sets or updates the authenticity hash for a product passport.
+     * @dev Restricted to the original manufacturer or contract admin before recycling.
+     *      Stores only the hash; the raw secret is never sent to the contract.
+     * @param productId The ID of the product.
+     * @param authenticityHash The keccak256 hash of the off-chain secret.
+     */
+    function setAuthenticityHash(
+        uint256 productId,
+        bytes32 authenticityHash
+    ) external {
+        if (productId == 0 || productId > _productIdCounter) {
+            revert ReLife__ProductNotFound(productId);
+        }
+        if (_products[productId].isRecycled || _products[productId].status == Status.Recycled) {
+            revert ReLife__ProductAlreadyRecycled(productId);
+        }
+        bool isManufacturer = (msg.sender == _products[productId].manufacturer);
+        bool isAdmin = hasRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        if (!isManufacturer && !isAdmin) {
+            revert ReLife__UnauthorizedManufacturer(productId, msg.sender);
+        }
+        _authenticityHashes[productId] = authenticityHash;
     }
 
     // -------------------------------------------------------------
@@ -1053,5 +1124,39 @@ contract ReLife is AccessControl {
         string calldata serialNumber
     ) external view returns (bool) {
         return _serialNumberExists[serialNumber];
+    }
+
+    /**
+     * @notice Verifies an off-chain physical authenticity secret against the on-chain keccak256 hash.
+     * @dev Free view call (zero gas). Compares keccak256(bytes(secret)) with the stored hash.
+     *      The raw secret is never stored on-chain or emitted in events.
+     * @param productId The ID of the product to verify.
+     * @param secret The plaintext secret from the physical QR / tag.
+     * @return isAuthentic True if keccak256(bytes(secret)) matches stored hash, false otherwise.
+     */
+    function verifySecret(
+        uint256 productId,
+        string calldata secret
+    ) external view returns (bool isAuthentic) {
+        if (productId == 0 || productId > _productIdCounter) {
+            return false;
+        }
+        bytes32 storedHash = _authenticityHashes[productId];
+        if (storedHash == bytes32(0) || bytes(secret).length == 0) {
+            return false;
+        }
+        return (keccak256(bytes(secret)) == storedHash);
+    }
+
+    /**
+     * @notice Returns the keccak256 authenticity hash stored on-chain for a product passport.
+     * @param productId The ID of the product.
+     * @return The 32-byte keccak256 hash (or bytes32(0) if not set).
+     */
+    function getAuthenticityHash(uint256 productId) external view returns (bytes32) {
+        if (productId == 0 || productId > _productIdCounter) {
+            revert ReLife__ProductNotFound(productId);
+        }
+        return _authenticityHashes[productId];
     }
 }

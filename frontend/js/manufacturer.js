@@ -176,11 +176,29 @@ document.addEventListener("DOMContentLoaded", async () => {
       const metadataURI = metaResult.ipfsUri;
       console.log("Metadata pinned to IPFS:", metadataURI);
 
-      // 3. Submit transaction on-chain via MetaMask
-      showStatus("info", "Step 3/3: Please confirm the transaction in MetaMask...");
+      // 3. Generate off-chain cryptographic authenticity secret & on-chain hash
+      showStatus("info", "Step 3/4: Generating off-chain authenticity secret...");
+      let authenticitySecret = "";
+      let authenticityHash = ethers.ZeroHash;
+
+      try {
+        const secRes = await fetch(`${API_BASE}/api/authenticity/generate-secret`);
+        if (secRes.ok) {
+          const secData = await secRes.json();
+          authenticitySecret = secData.secret;
+          authenticityHash = secData.hash;
+        }
+      } catch (secErr) {
+        console.warn("Could not fetch authenticity secret from backend:", secErr);
+      }
+
+      // 4. Submit transaction on-chain via MetaMask
+      showStatus("info", "Step 4/4: Please confirm the transaction in MetaMask...");
 
       const contract = ReLifeWallet.contract;
-      const tx = await contract.registerProduct(serialNumber, model, brand, metadataURI);
+      const tx = contract.registerProductWithSecret && authenticityHash !== ethers.ZeroHash
+        ? await contract.registerProductWithSecret(serialNumber, model, brand, metadataURI, authenticityHash)
+        : await contract.registerProduct(serialNumber, model, brand, metadataURI);
 
       showStatus("info", `Transaction submitted! Mining block on chain: ${tx.hash}`);
 
@@ -199,12 +217,19 @@ document.addEventListener("DOMContentLoaded", async () => {
         } catch (_) {}
       }
 
+      const passportUrl = authenticitySecret
+        ? `/product.html?id=${newProductId}&secret=${authenticitySecret}`
+        : `/product.html?id=${newProductId}`;
+
       showStatus(
         "success",
         `🎉 Product Passport successfully registered on-chain! Product ID: #${newProductId || "Confirmed"}. <br>
-         <a href="/product.html?id=${newProductId}" target="_blank" style="color:#10b981; font-weight:bold; text-decoration:underline;">
-           View Digital Passport & QR Code &rarr;
-         </a>`
+         <div style="margin-top:0.5rem; font-size:0.85rem;">
+           <strong>Authenticity Secret:</strong> Embedded in QR / physical packaging link (never stored on-chain or database).<br>
+           <a href="${passportUrl}" target="_blank" style="color:#10b981; font-weight:bold; text-decoration:underline;">
+             View Passport & Test Authenticity Secret &rarr;
+           </a>
+         </div>`
       );
 
       // Reset form and reload products table

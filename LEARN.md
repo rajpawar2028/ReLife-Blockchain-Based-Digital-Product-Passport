@@ -781,3 +781,47 @@ A Digital Product Passport must reflect physical reality:
 
 #### Q3: Why does ReLife block ownership transfers when a product's status is `InRepair` or `Recycled`?
 > **Model Answer**: A Digital Product Passport must guarantee digital-physical correspondence. If a physical device is disassembled inside a certified service center (`Status.InRepair`), secondary sales must be halted to prevent disputes over incomplete repairs or missing hardware components. Furthermore, once an item is shredded at end-of-life (`Status.Recycled`), permitting transfers would allow counterfeiters to purchase "empty" legitimate passports and re-assign them to illicit duplicate hardware. Blocking transfers at the smart contract level enforces physical supply chain reality cryptographically.
+
+---
+
+## Appendix: Feature 4 — Authenticity Secret (Hash On-Chain Verification)
+
+### 1. New Concepts Explained in Plain English
+
+#### Cryptographic Commitments with `keccak256`
+In blockchain engineering, you frequently need to prove you know a secret **without revealing the secret itself**. This is known as a **cryptographic commitment**:
+1. The manufacturer generates a 256-bit cryptographically random secret string off-chain (e.g. `c7f93a4e...`).
+2. The manufacturer computes `hash = keccak256(bytes(secret))`.
+3. The smart contract stores only the 32-byte hash (`_authenticityHashes[productId]`).
+4. **Why is this secure?** `keccak256` is a one-way mathematical function. An attacker inspecting Ethereum storage can see the 32-byte hash, but it is mathematically impossible to reverse-engineer the original secret from the hash.
+5. When a consumer checks the item, they provide the secret from the physical packaging or tamper-seal label. The smart contract hashes what the user typed and checks if it matches the stored commitment.
+
+#### Ephemeral Zero-Storage Rule
+Why did we strictly prohibit storing the plaintext secret in the database or logging it?
+- In Web2, if you store passwords or secrets in a database, a database leak compromises all products.
+- In ReLife, the backend generates the secret and immediately hands it to the authorized manufacturer to print onto the tamper-evident label. The backend **never** logs it, **never** commits it to git, and **never** writes it to SQLite/PostgreSQL. It exists strictly on the physical label.
+
+#### Honest Engineering: The Physical Label Cloning Limitation
+In engineering viva defenses, honesty about security boundaries earns the highest marks.
+* **What does the Authenticity Secret achieve?**
+  A counterfeiter cannot simply mint fake passports or fabricate QR codes pointing to authentic passports, because they do not know the 256-bit secret stored under the scratch-off seal or encrypted tag.
+* **What can it NOT prevent?**
+  If a malicious actor physically gets their hands on the authentic product packaging, takes a high-resolution photograph of the printed QR code and scratch-off secret, and prints an identical sticker onto 100 counterfeit knockoff boxes, **the secret will match for all 100 boxes!**
+* **The Layered Defense**:
+  This is why a QR secret raises the security bar substantially, but is not magic. True anti-counterfeiting requires **defense in depth**:
+  1. Permanent laser-etching of serial numbers into chassis hardware (not paper stickers).
+  2. Factory tamper-evident holographic seals over the secret.
+  3. Scan counter anomaly detection (Feature 5) to alert consumers when a single serial number is being scanned suspiciously across multiple locations!
+
+---
+
+### 2. Three Viva / Interview Questions You Should Be Able to Answer (Feature 4)
+
+#### Q1: Why do we store `keccak256(secret)` on the blockchain instead of storing the plaintext `secret`?
+> **Model Answer**: The Ethereum blockchain is a public, fully transparent ledger. Every storage slot and transaction payload is readable by anyone in the world via tools like Etherscan or `eth_getStorageAt`. If we stored the plaintext secret in contract storage, any counterfeiter could query the contract, copy the secret, and print authentic-looking QR codes. By storing only the one-way `keccak256` hash, the secret remains completely hidden from observers until physically revealed by the authentic packaging label.
+
+#### Q2: Can a counterfeiter photocopy a genuine physical DPP QR code containing an authenticity secret, and how should a Digital Product Passport defend against this?
+> **Model Answer**: Yes. A purely static QR code, even one containing an authenticity secret, can be physically photographed or photocopied. An authenticity secret proves that the QR link matches the manufacturer's cryptographic commitment, but cannot independently verify whether the physical paper label was duplicated. ReLife addresses this through layered security: (1) requiring physical hardware serial etching cross-checks, (2) tamper-evident scratch seals hiding the secret until retail sale, and (3) backend scan anomaly monitoring (Feature 5) that flags suspicious counterfeit duplicates when a secret is scanned repeatedly from different IPs.
+
+#### Q3: How does `verifySecret(productId, secret)` operate as a free view call without spending gas or sending a transaction?
+> **Model Answer**: In Solidity, `verifySecret` is marked `external view`. When a client calls a `view` function through an Ethereum JSON-RPC provider (like Alchemy, Infura, or a local node) using `eth_call`, the EVM executes the function locally in read-only memory on the connected node. Because no new transaction is mined into a block and no contract storage is modified, no validator consensus is required and the call executes instantaneously at zero gas cost.
