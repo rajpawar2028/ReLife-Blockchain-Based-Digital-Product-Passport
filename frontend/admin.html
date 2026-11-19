@@ -163,6 +163,24 @@
         </div>
       </div>
 
+      <!-- Section: Emergency Circuit Breaker (Pausable) -->
+      <div class="card" style="margin-bottom: 2rem; border-left: 4px solid var(--warning); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+        <div>
+          <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.35rem;">
+            <h2 style="font-size: 1.25rem; margin: 0;">Emergency Circuit Breaker</h2>
+            <span id="pauseStatusBadge" class="badge badge-success">Checking Status...</span>
+          </div>
+          <p style="color: var(--text-muted); font-size: 0.85rem; margin: 0; max-width: 650px;">
+            Halt or resume all state-changing smart contract operations (minting, transfers, updates, repairs, recycling). Read-only product passport verification remains active at all times.
+          </p>
+        </div>
+        <div>
+          <button id="btnTogglePause" class="btn btn-warning" style="white-space: nowrap; font-weight: 600;">
+            Pause Contract
+          </button>
+        </div>
+      </div>
+
       <!-- Section: Participant Onboarding -->
       <h2 style="margin-bottom: 1rem; font-size: 1.35rem;">Onboard Lifecycle Participants</h2>
       <div class="onboarding-grid">

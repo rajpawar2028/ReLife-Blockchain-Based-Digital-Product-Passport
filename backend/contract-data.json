@@ -34,6 +34,21 @@
     },
     {
       "inputs": [],
+      "name": "EnforcedPause",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ExpectedPause",
+      "type": "error"
+    },
+    {
+      "inputs": [],
+      "name": "ReLife__CannotRevokeLastAdmin",
+      "type": "error"
+    },
+    {
+      "inputs": [],
       "name": "ReLife__CannotTransferToSelf",
       "type": "error"
     },
@@ -247,6 +262,37 @@
       "inputs": [
         {
           "indexed": true,
+          "internalType": "uint256",
+          "name": "productId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "authenticityHash",
+          "type": "bytes32"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "actor",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        }
+      ],
+      "name": "AuthenticityHashSet",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
           "internalType": "address",
           "name": "account",
           "type": "address"
@@ -296,6 +342,19 @@
         }
       ],
       "name": "OwnershipTransferred",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": false,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "Paused",
       "type": "event"
     },
     {
@@ -698,6 +757,19 @@
       "anonymous": false,
       "inputs": [
         {
+          "indexed": false,
+          "internalType": "address",
+          "name": "account",
+          "type": "address"
+        }
+      ],
+      "name": "Unpaused",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
           "indexed": true,
           "internalType": "uint256",
           "name": "productId",
@@ -928,6 +1000,19 @@
       "type": "function"
     },
     {
+      "inputs": [],
+      "name": "getAdminCount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "inputs": [
         {
           "internalType": "uint256",
@@ -941,6 +1026,25 @@
           "internalType": "bytes32",
           "name": "",
           "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "manufacturer",
+          "type": "address"
+        }
+      ],
+      "name": "getManufacturerProductCount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
         }
       ],
       "stateMutability": "view",
@@ -1221,6 +1325,173 @@
     {
       "inputs": [
         {
+          "internalType": "address",
+          "name": "manufacturer",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "offset",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "limit",
+          "type": "uint256"
+        }
+      ],
+      "name": "getProductsByManufacturerPaginated",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "id",
+              "type": "uint256"
+            },
+            {
+              "internalType": "string",
+              "name": "serialNumber",
+              "type": "string"
+            },
+            {
+              "internalType": "string",
+              "name": "modelName",
+              "type": "string"
+            },
+            {
+              "internalType": "string",
+              "name": "brand",
+              "type": "string"
+            },
+            {
+              "internalType": "address",
+              "name": "manufacturer",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "currentOwner",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "manufacturingTimestamp",
+              "type": "uint256"
+            },
+            {
+              "internalType": "string",
+              "name": "metadataURI",
+              "type": "string"
+            },
+            {
+              "internalType": "bool",
+              "name": "isRecycled",
+              "type": "bool"
+            },
+            {
+              "internalType": "enum ReLife.Status",
+              "name": "status",
+              "type": "uint8"
+            }
+          ],
+          "internalType": "struct ReLife.Product[]",
+          "name": "items",
+          "type": "tuple[]"
+        },
+        {
+          "internalType": "uint256",
+          "name": "total",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "offset",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "limit",
+          "type": "uint256"
+        }
+      ],
+      "name": "getProductsPaginated",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "uint256",
+              "name": "id",
+              "type": "uint256"
+            },
+            {
+              "internalType": "string",
+              "name": "serialNumber",
+              "type": "string"
+            },
+            {
+              "internalType": "string",
+              "name": "modelName",
+              "type": "string"
+            },
+            {
+              "internalType": "string",
+              "name": "brand",
+              "type": "string"
+            },
+            {
+              "internalType": "address",
+              "name": "manufacturer",
+              "type": "address"
+            },
+            {
+              "internalType": "address",
+              "name": "currentOwner",
+              "type": "address"
+            },
+            {
+              "internalType": "uint256",
+              "name": "manufacturingTimestamp",
+              "type": "uint256"
+            },
+            {
+              "internalType": "string",
+              "name": "metadataURI",
+              "type": "string"
+            },
+            {
+              "internalType": "bool",
+              "name": "isRecycled",
+              "type": "bool"
+            },
+            {
+              "internalType": "enum ReLife.Status",
+              "name": "status",
+              "type": "uint8"
+            }
+          ],
+          "internalType": "struct ReLife.Product[]",
+          "name": "items",
+          "type": "tuple[]"
+        },
+        {
+          "internalType": "uint256",
+          "name": "total",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "uint256",
           "name": "productId",
           "type": "uint256"
@@ -1464,6 +1735,26 @@
         }
       ],
       "name": "isWarrantyValid",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "pause",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "paused",
       "outputs": [
         {
           "internalType": "bool",
@@ -1814,6 +2105,13 @@
         }
       ],
       "name": "transferOwnership",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "unpause",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"

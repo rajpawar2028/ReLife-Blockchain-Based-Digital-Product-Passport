@@ -2,14 +2,15 @@
 pragma solidity 0.8.24;
 
 import "@openzeppelin/contracts/access/AccessControl.sol";
+import "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
  * @title ReLife - Digital Product Passport (DPP) Core Smart Contract
  * @notice Manages product passports, role-based lifecycle participants, repair records,
  *         ownership transfers, warranty tracking, and circular decommissioning.
- * @dev Inherits OpenZeppelin AccessControl for enterprise-grade role management.
+ * @dev Inherits OpenZeppelin AccessControl for enterprise-grade role management and Pausable for circuit breaker.
  */
-contract ReLife is AccessControl {
+contract ReLife is AccessControl, Pausable {
     // -------------------------------------------------------------
     // ROLES
     // -------------------------------------------------------------
@@ -37,6 +38,7 @@ contract ReLife is AccessControl {
     error ReLife__NotPendingOwner(uint256 productId, address caller);
     error ReLife__UnauthorizedManufacturer(uint256 productId, address caller);
     error ReLife__WarrantyPeriodTooLong(uint256 months);
+    error ReLife__CannotRevokeLastAdmin();
 
     // -------------------------------------------------------------
     // DATA STRUCTURES
@@ -129,6 +131,9 @@ contract ReLife is AccessControl {
 
     // Mapping from manufacturer address to array of registered product IDs (for efficient pagination)
     mapping(address => uint256[]) private _manufacturerProducts;
+
+    // Number of active accounts possessing DEFAULT_ADMIN_ROLE (prevents accidental lockout)
+    uint256 private _adminCount;
 
     // -------------------------------------------------------------
     // EVENTS
@@ -239,6 +244,81 @@ contract ReLife is AccessControl {
      */
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _adminCount = 1;
+    }
+
+    // -------------------------------------------------------------
+    // EMERGENCY CIRCUIT BREAKER (PAUSABLE)
+    // -------------------------------------------------------------
+    /**
+     * @notice Triggers emergency circuit breaker, pausing all state-changing operations.
+     * @dev Restricted strictly to accounts with DEFAULT_ADMIN_ROLE.
+     */
+    function pause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _pause();
+    }
+
+    /**
+     * @notice Lifts emergency circuit breaker, resuming normal contract operations.
+     * @dev Restricted strictly to accounts with DEFAULT_ADMIN_ROLE.
+     */
+    function unpause() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _unpause();
+    }
+
+    // -------------------------------------------------------------
+    // ROLE GOVERNANCE & LAST-ADMIN PROTECTION OVERRIDES
+    // -------------------------------------------------------------
+    /**
+     * @notice Grants a role, incrementing admin counter if DEFAULT_ADMIN_ROLE is granted.
+     */
+    function grantRole(
+        bytes32 role,
+        address account
+    ) public virtual override onlyRole(getRoleAdmin(role)) {
+        if (role == DEFAULT_ADMIN_ROLE && !hasRole(DEFAULT_ADMIN_ROLE, account)) {
+            _adminCount++;
+        }
+        super.grantRole(role, account);
+    }
+
+    /**
+     * @notice Revokes a role, preventing revocation of the final remaining DEFAULT_ADMIN_ROLE.
+     */
+    function revokeRole(
+        bytes32 role,
+        address account
+    ) public virtual override onlyRole(getRoleAdmin(role)) {
+        if (role == DEFAULT_ADMIN_ROLE && hasRole(DEFAULT_ADMIN_ROLE, account)) {
+            if (_adminCount <= 1) {
+                revert ReLife__CannotRevokeLastAdmin();
+            }
+            _adminCount--;
+        }
+        super.revokeRole(role, account);
+    }
+
+    /**
+     * @notice Renounces a role, preventing renunciation of the final remaining DEFAULT_ADMIN_ROLE.
+     */
+    function renounceRole(
+        bytes32 role,
+        address callerConfirmation
+    ) public virtual override {
+        if (role == DEFAULT_ADMIN_ROLE && hasRole(DEFAULT_ADMIN_ROLE, callerConfirmation)) {
+            if (_adminCount <= 1) {
+                revert ReLife__CannotRevokeLastAdmin();
+            }
+            _adminCount--;
+        }
+        super.renounceRole(role, callerConfirmation);
+    }
+
+    /**
+     * @notice Returns total count of active administrator accounts.
+     */
+    function getAdminCount() external view returns (uint256) {
+        return _adminCount;
     }
 
     // -------------------------------------------------------------
@@ -252,7 +332,7 @@ contract ReLife is AccessControl {
     function registerManufacturer(
         address account,
         string calldata name
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) whenNotPaused {
         if (account == address(0)) {
             revert ReLife__ZeroAddress();
         }
@@ -272,7 +352,7 @@ contract ReLife is AccessControl {
     function registerRepairCenter(
         address account,
         string calldata name
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) whenNotPaused {
         if (account == address(0)) {
             revert ReLife__ZeroAddress();
         }
@@ -292,7 +372,7 @@ contract ReLife is AccessControl {
     function registerRecycler(
         address account,
         string calldata name
-    ) external onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external onlyRole(DEFAULT_ADMIN_ROLE) whenNotPaused {
         if (account == address(0)) {
             revert ReLife__ZeroAddress();
         }
@@ -302,6 +382,15 @@ contract ReLife is AccessControl {
 
         grantRole(RECYCLER_ROLE, account);
         emit RecyclerRegistered(account, name, msg.sender);
+    }
+
+    function _requireActiveProduct(uint256 productId) internal view {
+        if (productId == 0 || productId > _productIdCounter) {
+            revert ReLife__ProductNotFound(productId);
+        }
+        if (_products[productId].isRecycled || _products[productId].status == Status.Recycled) {
+            revert ReLife__ProductAlreadyRecycled(productId);
+        }
     }
 
     // -------------------------------------------------------------
@@ -321,7 +410,7 @@ contract ReLife is AccessControl {
         string calldata modelName,
         string calldata brand,
         string calldata metadataURI
-    ) internal returns (uint256) {
+    ) internal whenNotPaused returns (uint256) {
         if (bytes(serialNumber).length == 0) {
             revert ReLife__EmptyString("serialNumber");
         }
@@ -523,13 +612,8 @@ contract ReLife is AccessControl {
     function setAuthenticityHash(
         uint256 productId,
         bytes32 authenticityHash
-    ) external {
-        if (productId == 0 || productId > _productIdCounter) {
-            revert ReLife__ProductNotFound(productId);
-        }
-        if (_products[productId].isRecycled || _products[productId].status == Status.Recycled) {
-            revert ReLife__ProductAlreadyRecycled(productId);
-        }
+    ) external whenNotPaused {
+        _requireActiveProduct(productId);
         bool isManufacturer = (msg.sender == _products[productId].manufacturer);
         bool isAdmin = hasRole(DEFAULT_ADMIN_ROLE, msg.sender);
         if (!isManufacturer && !isAdmin) {
@@ -552,13 +636,8 @@ contract ReLife is AccessControl {
     function initiateTransfer(
         uint256 productId,
         address to
-    ) external {
-        if (productId == 0 || productId > _productIdCounter) {
-            revert ReLife__ProductNotFound(productId);
-        }
-        if (_products[productId].isRecycled || _products[productId].status == Status.Recycled) {
-            revert ReLife__ProductAlreadyRecycled(productId);
-        }
+    ) external whenNotPaused {
+        _requireActiveProduct(productId);
         if (_products[productId].status == Status.InRepair) {
             revert ReLife__ProductInRepair(productId);
         }
@@ -586,13 +665,8 @@ contract ReLife is AccessControl {
      *      Blocks if the product is Recycled, InRepair, or if no transfer is pending.
      * @param productId The ID of the product.
      */
-    function acceptTransfer(uint256 productId) external {
-        if (productId == 0 || productId > _productIdCounter) {
-            revert ReLife__ProductNotFound(productId);
-        }
-        if (_products[productId].isRecycled || _products[productId].status == Status.Recycled) {
-            revert ReLife__ProductAlreadyRecycled(productId);
-        }
+    function acceptTransfer(uint256 productId) external whenNotPaused {
+        _requireActiveProduct(productId);
         if (_products[productId].status == Status.InRepair) {
             revert ReLife__ProductInRepair(productId);
         }
@@ -639,7 +713,7 @@ contract ReLife is AccessControl {
      *      Blocks if no transfer is pending.
      * @param productId The ID of the product.
      */
-    function cancelTransfer(uint256 productId) external {
+    function cancelTransfer(uint256 productId) external whenNotPaused {
         if (productId == 0 || productId > _productIdCounter) {
             revert ReLife__ProductNotFound(productId);
         }
@@ -677,13 +751,8 @@ contract ReLife is AccessControl {
     function transferOwnership(
         uint256 productId,
         address newOwner
-    ) external {
-        if (productId == 0 || productId > _productIdCounter) {
-            revert ReLife__ProductNotFound(productId);
-        }
-        if (_products[productId].isRecycled || _products[productId].status == Status.Recycled) {
-            revert ReLife__ProductAlreadyRecycled(productId);
-        }
+    ) external whenNotPaused {
+        _requireActiveProduct(productId);
         if (_products[productId].status == Status.InRepair) {
             revert ReLife__ProductInRepair(productId);
         }
@@ -746,13 +815,8 @@ contract ReLife is AccessControl {
         uint256 warrantyEnd,
         string calldata warrantyType,
         string calldata termsUri
-    ) internal {
-        if (productId == 0 || productId > _productIdCounter) {
-            revert ReLife__ProductNotFound(productId);
-        }
-        if (_products[productId].isRecycled || _products[productId].status == Status.Recycled) {
-            revert ReLife__ProductAlreadyRecycled(productId);
-        }
+    ) internal whenNotPaused {
+        _requireActiveProduct(productId);
 
         bool isManufacturer = (msg.sender == _products[productId].manufacturer);
         bool isAdmin = hasRole(DEFAULT_ADMIN_ROLE, msg.sender);
@@ -867,13 +931,8 @@ contract ReLife is AccessControl {
         string calldata repairType,
         string calldata description,
         string calldata serviceUri
-    ) external onlyRole(REPAIR_CENTER_ROLE) returns (uint256) {
-        if (productId == 0 || productId > _productIdCounter) {
-            revert ReLife__ProductNotFound(productId);
-        }
-        if (_products[productId].isRecycled || _products[productId].status == Status.Recycled) {
-            revert ReLife__ProductAlreadyRecycled(productId);
-        }
+    ) external onlyRole(REPAIR_CENTER_ROLE) whenNotPaused returns (uint256) {
+        _requireActiveProduct(productId);
         if (bytes(repairType).length == 0) {
             revert ReLife__EmptyString("repairType");
         }
@@ -928,13 +987,8 @@ contract ReLife is AccessControl {
         string calldata recyclingFacility,
         string calldata notes,
         string calldata certificateUri
-    ) external onlyRole(RECYCLER_ROLE) {
-        if (productId == 0 || productId > _productIdCounter) {
-            revert ReLife__ProductNotFound(productId);
-        }
-        if (_products[productId].isRecycled || _products[productId].status == Status.Recycled) {
-            revert ReLife__ProductAlreadyRecycled(productId);
-        }
+    ) external onlyRole(RECYCLER_ROLE) whenNotPaused {
+        _requireActiveProduct(productId);
         if (bytes(recyclingFacility).length == 0) {
             revert ReLife__EmptyString("recyclingFacility");
         }
@@ -992,7 +1046,7 @@ contract ReLife is AccessControl {
     function updateProductStatus(
         uint256 productId,
         Status newStatus
-    ) external {
+    ) external whenNotPaused {
         if (productId == 0 || productId > _productIdCounter) {
             revert ReLife__ProductNotFound(productId);
         }

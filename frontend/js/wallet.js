@@ -99,6 +99,11 @@ const ReLifeWallet = {
       console.warn("Session check notice:", err.message);
     }
 
+    // Check pause status and render global banner if paused
+    try {
+      await this.checkAndRenderPauseBanner();
+    } catch (_) {}
+
     return true;
   },
 
@@ -245,6 +250,12 @@ const ReLifeWallet = {
 
     if (errorString.includes("AccessControlUnauthorizedAccount")) {
       return "Unauthorized Action: Your wallet does not hold the required role on-chain for this function.";
+    }
+    if (errorString.includes("EnforcedPause")) {
+      return "Contract is Paused: All state-changing operations are temporarily halted by contract administrators.";
+    }
+    if (errorString.includes("ReLife__CannotRevokeLastAdmin")) {
+      return "Action Blocked: Cannot revoke or renounce the last remaining administrator role. Appoint another admin first.";
     }
     if (errorString.includes("ReLife__SerialAlreadyExists")) {
       return "Duplicate Serial Number: A product passport with this physical serial number already exists.";
@@ -542,6 +553,43 @@ const ReLifeWallet = {
   },
 
   /**
+   * Checks whether the contract is currently paused, and displays/removes a global sticky banner.
+   * Can be invoked from any page with or without an active wallet connection.
+   * @returns {Promise<boolean>} True if paused, false otherwise.
+   */
+  async checkAndRenderPauseBanner() {
+    try {
+      const contract = this.contract || this.getReadOnlyContract();
+      if (!contract || typeof contract.paused !== "function") {
+        return false;
+      }
+
+      const isPaused = await contract.paused();
+      let banner = document.getElementById("globalPauseBanner");
+
+      if (isPaused) {
+        if (!banner) {
+          banner = document.createElement("div");
+          banner.id = "globalPauseBanner";
+          banner.style.cssText = "background: linear-gradient(90deg, #b91c1c, #dc2626); color: #ffffff; padding: 0.75rem 1rem; text-align: center; font-weight: 600; font-size: 0.9rem; position: sticky; top: 0; z-index: 10000; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4); display: flex; align-items: center; justify-content: center; gap: 0.5rem;";
+          banner.innerHTML = `<span>⚠️ <strong>EMERGENCY PAUSE ACTIVE:</strong> Smart contract operations are temporarily suspended by administrators. Passport verification and view functions remain accessible.</span>`;
+          document.body.prepend(banner);
+        } else {
+          banner.style.display = "flex";
+        }
+      } else {
+        if (banner) {
+          banner.style.display = "none";
+        }
+      }
+      return Boolean(isPaused);
+    } catch (err) {
+      console.warn("Pause banner check error:", err.message);
+      return false;
+    }
+  },
+
+  /**
    * Subscribes to wallet events (e.g., account changed, connected).
    */
   on(event, callback) {
@@ -559,3 +607,4 @@ window.ReLifeWallet = ReLifeWallet;
 window.formatProduct = ReLifeWallet.formatProduct;
 window.formatWarranty = ReLifeWallet.formatWarranty;
 window.queryFilterBatched = ReLifeWallet.queryFilterBatched.bind(ReLifeWallet);
+window.checkAndRenderPauseBanner = ReLifeWallet.checkAndRenderPauseBanner.bind(ReLifeWallet);

@@ -32,6 +32,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   const btnRevokeRole = document.getElementById("btnRevokeRole");
   const roleCheckResult = document.getElementById("roleCheckResult");
 
+  // Emergency Pause Circuit Breaker
+  const pauseStatusBadge = document.getElementById("pauseStatusBadge");
+  const btnTogglePause = document.getElementById("btnTogglePause");
+
   // Table
   const participantsTableBody = document.getElementById("participantsTableBody");
   const btnRefreshParticipants = document.getElementById("btnRefreshParticipants");
@@ -145,6 +149,9 @@ document.addEventListener("DOMContentLoaded", async () => {
           networkName = "Hardhat Local (31337)";
         }
         statNetwork.innerText = networkName;
+
+        // Refresh Circuit Breaker pause status
+        await refreshPauseStatus();
 
         // Load directory
         loadParticipantsDirectory();
@@ -341,7 +348,13 @@ document.addEventListener("DOMContentLoaded", async () => {
       return;
     }
 
-    if (!confirm(`Are you sure you want to revoke ${roleName} from ${account}? This will immediately prevent them from performing authorized lifecycle actions.`)) {
+    // Role-specific confirmation prompt
+    let confirmMsg = `Are you sure you want to revoke ${roleName} from ${account}? This will immediately prevent them from performing authorized lifecycle actions.`;
+    if (roleName === "DEFAULT_ADMIN_ROLE") {
+      confirmMsg = `⚠️ CAUTION: You are about to revoke the Contract Administrator role (DEFAULT_ADMIN_ROLE) from ${account}.\n\nNote: The contract strictly requires at least one active administrator at all times to prevent governance lockouts. Do you wish to proceed?`;
+    }
+
+    if (!confirm(confirmMsg)) {
       return;
     }
 
@@ -363,6 +376,85 @@ document.addEventListener("DOMContentLoaded", async () => {
       btnRevokeRole.disabled = false;
     }
   });
+
+  // -------------------------------------------------------------
+  // EMERGENCY CIRCUIT BREAKER (PAUSE / UNPAUSE)
+  // -------------------------------------------------------------
+  async function refreshPauseStatus() {
+    if (!pauseStatusBadge || !btnTogglePause) return;
+    try {
+      const contract = ReLifeWallet.contract || ReLifeWallet.getReadOnlyContract();
+      if (!contract || typeof contract.paused !== "function") {
+        pauseStatusBadge.className = "badge badge-info";
+        pauseStatusBadge.innerText = "Contract Active";
+        btnTogglePause.style.display = "none";
+        return;
+      }
+
+      const isPaused = await contract.paused();
+      if (isPaused) {
+        pauseStatusBadge.className = "badge badge-danger";
+        pauseStatusBadge.innerText = "CONTRACT PAUSED";
+        btnTogglePause.className = "btn btn-success";
+        btnTogglePause.innerText = "Unpause Contract";
+      } else {
+        pauseStatusBadge.className = "badge badge-success";
+        pauseStatusBadge.innerText = "Contract Active";
+        btnTogglePause.className = "btn btn-warning";
+        btnTogglePause.innerText = "Pause Contract";
+      }
+      btnTogglePause.style.display = "inline-block";
+    } catch (err) {
+      console.warn("Pause status check failed:", err.message);
+    }
+  }
+
+  if (btnTogglePause) {
+    btnTogglePause.addEventListener("click", async () => {
+      if (!isAdmin || !ReLifeWallet.contract) return;
+
+      try {
+        const isPaused = await ReLifeWallet.contract.paused();
+        if (isPaused) {
+          const confirmUnpause = confirm("Are you sure you want to UNPAUSE the ReLife smart contract? Normal lifecycle operations will resume.");
+          if (!confirmUnpause) return;
+
+          btnTogglePause.disabled = true;
+          btnTogglePause.innerHTML = `<span class="spinner"></span> Unpausing...`;
+          hideAlert();
+
+          const tx = await ReLifeWallet.contract.unpause();
+          showAlert(`Unpause transaction submitted: <code>${tx.hash}</code>. Waiting for block confirmation...`, "info");
+          await tx.wait();
+
+          showAlert("Smart contract has been successfully UNPAUSED! Lifecycle operations are restored.", "success");
+        } else {
+          const confirmPause = confirm("⚠️ EMERGENCY CIRCUIT BREAKER:\n\nAre you sure you want to PAUSE the ReLife smart contract?\n\nWhile paused, ALL state-changing transactions (product passport creation, ownership transfers, status updates, repair logs, recycling logs) will be blocked immediately. Read-only verification will remain available.");
+          if (!confirmPause) return;
+
+          btnTogglePause.disabled = true;
+          btnTogglePause.innerHTML = `<span class="spinner"></span> Pausing...`;
+          hideAlert();
+
+          const tx = await ReLifeWallet.contract.pause();
+          showAlert(`Pause transaction submitted: <code>${tx.hash}</code>. Waiting for block confirmation...`, "warning");
+          await tx.wait();
+
+          showAlert("Emergency Pause activated! Smart contract state-changing operations are now paused.", "warning");
+        }
+
+        await refreshPauseStatus();
+        if (window.checkAndRenderPauseBanner) {
+          await window.checkAndRenderPauseBanner();
+        }
+      } catch (err) {
+        showAlert(ReLifeWallet.parseError(err), "danger");
+      } finally {
+        btnTogglePause.disabled = false;
+        await refreshPauseStatus();
+      }
+    });
+  }
 
   // -------------------------------------------------------------
   // PARTICIPANT DIRECTORY / EVENT AUDIT LOG
