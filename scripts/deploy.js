@@ -39,6 +39,13 @@ async function main() {
   const contractAddress = await relife.getAddress();
   console.log(`>>> ReLife deployed successfully at: ${contractAddress}`);
 
+  // Confirm deployed bytecode is present on-chain
+  const deployedCode = await hre.ethers.provider.getCode(contractAddress);
+  if (!deployedCode || deployedCode === "0x" || deployedCode === "0x0") {
+    throw new Error(`Deployment verification failed: getCode(${contractAddress}) returned "0x" (no bytecode found).`);
+  }
+  console.log(`>>> Bytecode confirmed on-chain (${(deployedCode.length - 2) / 2} bytes deployed).`);
+
   // Fetch full contract artifact for ABI
   const artifact = await hre.artifacts.readArtifact("ReLife");
 
