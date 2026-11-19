@@ -346,6 +346,11 @@ Every state mutation in `ReLife.sol` has been benchmarked for gas efficiency:
    The frontend browser contains zero private keys or Pinata secrets. All IPFS interactions pass through an Express backend that enforces strict MIME type validation and file size limits.
 4. **Defensive Data Formatting & XSS Sanitization**:
    All contract outputs are passed through `ReLifeWallet.formatProduct()` and rendered using `textContent` rather than raw `innerHTML`, shielding the application from Cross-Site Scripting (XSS).
+5. **Cryptographic Authenticity Secret Commitment (Feature 4)**:
+   Stores only a 32-byte `keccak256(secret)` hash commitment on-chain, keeping the ephemeral 256-bit randomness off the ledger until verified via gas-free `view` calls.
+6. **Scan Velocity & Counterfeit Anomaly Alert (Feature 5)**:
+   Off-chain scan analytics engine in the Express backend tracking verification frequency and distinct network origins via salted HMAC-SHA256 IP anonymization (zero PII stored). Automatically flags passports as suspicious when cumulative scans exceed 5 or when scanned across $\ge 3$ distinct networks within 10 minutes, displaying prominent warnings on the verification portal.
+
 
 ---
 

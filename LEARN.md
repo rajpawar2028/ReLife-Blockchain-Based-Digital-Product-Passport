@@ -825,3 +825,46 @@ In engineering viva defenses, honesty about security boundaries earns the highes
 
 #### Q3: How does `verifySecret(productId, secret)` operate as a free view call without spending gas or sending a transaction?
 > **Model Answer**: In Solidity, `verifySecret` is marked `external view`. When a client calls a `view` function through an Ethereum JSON-RPC provider (like Alchemy, Infura, or a local node) using `eth_call`, the EVM executes the function locally in read-only memory on the connected node. Because no new transaction is mined into a block and no contract storage is modified, no validator consensus is required and the call executes instantaneously at zero gas cost.
+
+---
+
+## Appendix: Feature 5 — Scan Counter & Counterfeit Anomaly Alert
+
+### 1. New Concepts Explained in Plain English
+
+#### Why Can't a Smart Contract `view` Function Count Scans?
+In Solidity, functions marked `view` or `pure` are executed via local `eth_call`. They are read-only:
+- A `view` function **cannot modify blockchain storage**. If you try to write `scanCount++` inside a `view` function, the Solidity compiler will throw a compile error.
+- Could we make `logScan` a regular state-mutating transaction? Yes, but then **every single consumer who scans a QR code would need a crypto wallet, Sepolia/Mainnet ETH, and would have to wait 15 seconds and pay gas fees just to look at the product passport!**
+- This would completely destroy real-world usability. Therefore, scan counting and anomaly detection are naturally handled in the **off-chain Express backend**.
+
+#### Privacy by Design: HMAC-SHA256 IP Hashing
+In Europe and worldwide (GDPR, CCPA), an IP address is considered **Personally Identifiable Information (PII)**.
+- If our backend logged `192.168.1.50`, an attacker who breaches the server could correlate which individual scanned which product at what time.
+- **The Solution**: We never store, log, or return the raw IP address. Instead, we hash the client IP using HMAC-SHA256 with a secret salt:
+  $$\text{hashedIP} = \text{HMAC-SHA256}(\text{rawIP}, \text{salt})$$
+- Because HMAC is one-way, no one can recover the original IP address. But identical IPs always produce the identical hash, allowing our anomaly engine to track distinct devices without compromising user privacy!
+
+#### Cloned QR Detection: Volume vs. Velocity Anomalies
+Imagine a counterfeiter buys 1 genuine laptop, takes a high-res photo of the QR code and authenticity secret, and prints that exact sticker onto 50 fake laptops sold across different cities:
+1. **Velocity Anomaly**: If consumers scan that same product ID from 3 distinct network IPs within a 10-minute window, it is physically impossible for the genuine single product to teleport across cities. ReLife instantly flags the passport as `SUSPICIOUS`.
+2. **Cumulative Volume Anomaly**: A legitimate consumer scans a product passport once or twice when purchasing and registering it. If a single product ID accumulates more than 5 scans, the likelihood of a photocopied/cloned label skyrockets.
+
+#### Serverless Filesystems vs. Cloud Databases
+In local development, our backend writes to `backend/data/scans.json`.
+- When deploying to serverless platforms like **Vercel** or **AWS Lambda**, the filesystem is **read-only and ephemeral** (it resets on every execution).
+- For cloud production deployments, the scan storage logic is designed to be easily pointed to hosted key-value databases such as **Redis**, **Vercel KV**, or **PostgreSQL**.
+
+---
+
+### 2. Three Viva / Interview Questions You Should Be Able to Answer (Feature 5)
+
+#### Q1: Why is scan counting handled in the off-chain Express backend rather than directly inside a Solidity smart contract?
+> **Model Answer**: Smart contract `view` functions are strictly read-only and cannot alter storage state on the EVM. If we made scan counting an on-chain transaction, every consumer scanning a QR code in a retail store would be forced to connect a Web3 wallet (like MetaMask), sign a transaction, and pay gas fees, which would create unacceptable friction for ordinary non-crypto users. Handling scan telemetry in the backend provides instant, zero-cost verification while maintaining fraud detection capability.
+
+#### Q2: How does ReLife comply with data privacy regulations (like GDPR) when tracking client scan locations for anomaly detection?
+> **Model Answer**: Under GDPR and data privacy frameworks, raw IP addresses are classified as Personally Identifiable Information (PII). ReLife implements Privacy by Design by passing all client IP addresses through an HMAC-SHA256 hashing function with a server-side salt before any processing or storage. The raw IP address is never stored in memory, never written to disk, and never logged. The resulting cryptographic hash allows the anomaly engine to identify repeat scans and distinct network counts without storing any personal user data.
+
+#### Q3: What specific heuristics does ReLife use to detect photocopied or cloned QR codes, and how are false alarms prevented?
+> **Model Answer**: ReLife uses a dual-heuristic anomaly detection model: (1) **Volume threshold**: Flags passports scanned more than 5 cumulative times, as authentic consumer items are rarely scanned repeatedly. (2) **Velocity threshold**: Flags passports scanned from 3 or more distinct hashed IPs within a 10-minute rolling window, indicating that identical QR stickers are being scanned in different locations simultaneously. To prevent malicious bots from spamming the endpoint to trigger false counterfeit alarms, a sliding-window rate limiter restricts each client IP to a maximum of 20 requests per minute.
+

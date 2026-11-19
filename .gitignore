@@ -23,6 +23,7 @@ build/
 # Backend uploads & temporary file storage
 backend/uploads/
 uploads/
+backend/data/
 
 # Logs & debugging
 *.log

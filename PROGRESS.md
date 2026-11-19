@@ -22,27 +22,28 @@
 - [x] **Feature 2: Warranty with Automatic Expiry Evaluation** — `warrantyStart` and `warrantyEnd` timestamps per product, view `isWarrantyValid(id)` using `block.timestamp`, UI status with days remaining.
 - [x] **Feature 3: Ownership Transfer with 2-Step Accept** — `initiateTransfer(id, to)`, `acceptTransfer(id)`, `cancelTransfer(id)`, pending owner state, blocked on Recycled/already pending, full custody history.
 - [x] **Feature 4: Authenticity Secret Hash on Chain** — Off-chain cryptographically random secret generation in backend, on-chain `keccak256(secret)` storage, view `verifySecret(id, secret)`, anti-counterfeiting verification UI.
-- [ ] **Feature 5: Scan Counter & Anomaly Alert** — Backend scan rate-limiting and logging with hashed IPs, `GET /api/scans/:id`, suspicious counterfeit alert thresholds on Verify portal.
+- [x] **Feature 5: Scan Counter & Anomaly Alert** — Backend scan rate-limiting and logging with hashed IPs, `GET /api/scans/:id`, suspicious counterfeit alert thresholds on Verify portal.
 - [ ] **Feature 6: Comprehensive Lifecycle Timeline View** — Event-driven chronological timeline from `ProductRegistered`, `StatusChanged`, `RepairAdded`, `TransferInitiated/Accepted`, `WarrantyAdded`, and `Recycled` using safe DOM `textContent`.
 - [ ] **Feature 7: Mobile-Optimized Camera QR Scanner** — Front-facing/back-facing camera scanning via `html5-qrcode` with clear permissions, fallback ID entry, and query parameter parsing.
 
 ---
 
 ## Current Status
-- **Current Phase**: Advanced 7-Feature Roadmap — Feature 4 Completed (Feature 5 Ready)
+- **Current Phase**: Advanced 7-Feature Roadmap — Feature 5 Completed (Feature 6 Ready)
 - **What is done**:
   - **Feature 1 (Product Status State Machine)**: Integrated `enum Status { Manufactured, Sold, InRepair, Recycled }`, `updateProductStatus`, `getProductStatus`, and `StatusChanged` events with 15 dedicated Hardhat tests.
   - **Feature 2 (Warranty with Automatic Expiry Evaluation)**: Integrated `warrantyStart` and `warrantyEnd`, `setProductWarranty`, gas-free `isWarrantyValid(id)` view method, countdown UI display, and 14 dedicated Hardhat tests.
   - **Feature 3 (Ownership Transfer with 2-Step Accept)**: Integrated `_pendingOwners`, `initiateTransfer`, `acceptTransfer`, `cancelTransfer`, two-way dashboard inbox, and 16 dedicated Hardhat tests.
-  - **Feature 4 (Authenticity Secret Hash on Chain)**:
-    - Express endpoint `GET /api/authenticity/generate-secret` generating ephemeral 32-byte cryptographic random secrets (`crypto.randomBytes`) and `keccak256` hashes with zero persistence (no logging, no DB storage).
-    - On-chain storage of `keccak256(secret)` in `_authenticityHashes` via `registerProductWithSecret` and `setAuthenticityHash`. Plaintext secret is never sent to contract or emitted in events.
-    - Gas-free view method `verifySecret(productId, secret)` comparing hashes on-chain.
-    - Updated `frontend/product.html` and `frontend/js/product.js` to parse secrets from QR URLs or manual inputs, dynamically showing "Authentic" or "Not matching".
-    - Added 10 comprehensive tests in `test/AuthenticitySecret.test.js` validating cryptographic checks and secret isolation.
-  - Ran full test suite across 14 test suites: **171 passing tests** with 100% success rate.
-- **What is broken / blockers**: None. All 171 tests passing cleanly.
-- **Next Step**: Feature 5: Scan Counter and Counterfeit Alert (Express backend scan logging with hashed IPs, rate limiting, and alert threshold banner).
+  - **Feature 4 (Authenticity Secret Hash on Chain)**: Integrated backend ephemeral secret generator, on-chain `keccak256` commitment storage, gas-free `verifySecret(id, secret)` view check, verification badges, and 10 dedicated Hardhat tests.
+  - **Feature 5 (Scan Counter and Counterfeit Anomaly Alert)**:
+    - Centralized configuration in `backend/config/scanConfig.js` (`SCAN_COUNT_THRESHOLD = 5`, `DISTINCT_IPS_THRESHOLD = 3`, `ANOMALY_WINDOW_MS = 10m`, `RATE_LIMIT_WINDOW_MS = 1m`, `RATE_LIMIT_MAX_REQUESTS = 20`).
+    - Express endpoint `POST /api/scans/:id` and `GET /api/scans/:id` in `backend/routes/scans.js` with client rate limiting (HTTP 429) and HMAC-SHA256 salted IP anonymization (strictly zero raw PII stored or logged).
+    - File persistence in `backend/data/scans.json` (git-ignored) with clear architectural notes regarding hosted databases (Redis/KV) for read-only serverless platforms like Vercel.
+    - Updated `frontend/product.html` and `frontend/js/product.js` with a high-visibility red alert banner (`#counterfeitWarningBanner`) and scan count indicator (`#viewProdScanCount`).
+    - Added 8 comprehensive tests in `test/ScanCounter.test.js` covering normal scanning, scan count alert, velocity anomaly alert, GDPR privacy audit, rate limiter rejection, and input validation.
+  - Ran full test suite across 15 test suites: **179 passing tests** with 100% success rate.
+- **What is broken / blockers**: None. All 179 tests passing cleanly.
+- **Next Step**: Feature 6: Timeline View on the Verify page (chronological event history from contract events using safe DOM `textContent`).
 - **GitHub Repository**: [https://github.com/rajpawar2028/ReLife-Blockchain-Based-Digital-Product-Passport](https://github.com/rajpawar2028/ReLife-Blockchain-Based-Digital-Product-Passport)
   - Security audit verified 0 secrets leaked (`.env` strictly excluded).
   - Clean commit history under author Raj Pawar (`rajvirajpawar@gmail.com`).

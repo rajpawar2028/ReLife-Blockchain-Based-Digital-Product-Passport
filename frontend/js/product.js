@@ -25,10 +25,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   const viewProdDate = document.getElementById("viewProdDate");
   const viewProdIpfs = document.getElementById("viewProdIpfs");
   const viewProdWarranty = document.getElementById("viewProdWarranty");
+  const viewProdScanCount = document.getElementById("viewProdScanCount");
+  const counterfeitWarningBanner = document.getElementById("counterfeitWarningBanner");
+  const counterfeitWarningDetails = document.getElementById("counterfeitWarningDetails");
   const authenticityBadge = document.getElementById("authenticityBadge");
   const secretBadge = document.getElementById("secretBadge");
   const recycledBadge = document.getElementById("recycledBadge");
   const qrcodeContainer = document.getElementById("qrcodeContainer");
+
+  const API_BASE = window.location.origin.includes("5000")
+    ? window.location.origin
+    : "http://localhost:5000";
 
   // IPFS Metadata Elements
   const viewProdCarbon = document.getElementById("viewProdCarbon");
@@ -258,6 +265,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       // Verify Authenticity Secret if provided
       await loadAuthenticitySecret(contract, pId);
 
+      // Log scan in backend and check counterfeit alert thresholds
+      await logAndCheckScanCounter(pId);
+
       showPassport();
     } catch (err) {
       console.error("Verification error:", err);
@@ -440,6 +450,47 @@ document.addEventListener("DOMContentLoaded", async () => {
       secretBadge.style.display = "inline-flex";
       secretBadge.className = "badge badge-danger";
       secretBadge.innerHTML = "&#9888; Not matching";
+    }
+  }
+
+  /**
+   * Logs passport scan with backend and displays counterfeit anomaly alert if thresholds are exceeded
+   */
+  async function logAndCheckScanCounter(productId) {
+    if (!viewProdScanCount) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/scans/${productId}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (!res.ok) {
+        if (res.status === 429) {
+          viewProdScanCount.innerHTML = `<span class="badge badge-warning" style="background:#f59e0b; color:#000;">Scan Rate Limit Reached</span>`;
+        }
+        return;
+      }
+
+      const data = await res.json();
+      if (!data.success) return;
+
+      if (data.isSuspicious) {
+        if (counterfeitWarningBanner) {
+          counterfeitWarningBanner.style.display = "block";
+        }
+        if (counterfeitWarningDetails && data.warning) {
+          counterfeitWarningDetails.innerText = data.warning;
+        }
+        viewProdScanCount.innerHTML = `<span class="badge badge-danger">&#9888; ${data.totalScans} scan(s) (${data.allTimeDistinctIps} distinct networks) &mdash; SUSPICIOUS</span>`;
+      } else {
+        if (counterfeitWarningBanner) {
+          counterfeitWarningBanner.style.display = "none";
+        }
+        viewProdScanCount.innerHTML = `<span class="badge badge-info" style="background:rgba(59,130,246,0.2); color:#60a5fa;">&#10003; ${data.totalScans} scan(s) (Normal Activity)</span>`;
+      }
+    } catch (err) {
+      console.warn("Scan counter service unreachable:", err.message);
+      viewProdScanCount.innerHTML = `<span class="badge badge-secondary" style="background:rgba(255,255,255,0.08);">&mdash;</span>`;
     }
   }
 

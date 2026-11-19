@@ -5,6 +5,7 @@ require("dotenv").config();
 
 const ipfsRouter = require("./routes/ipfs");
 const authenticityRouter = require("./routes/authenticity");
+const scansRouter = require("./routes/scans");
 const pinataService = require("./pinataService");
 
 const app = express();
@@ -36,6 +37,9 @@ app.use("/api/ipfs", ipfsRouter);
 
 // Authenticity secret generation routes
 app.use("/api/authenticity", authenticityRouter);
+
+// Scan logging & anomaly detection routes
+app.use("/api/scans", scansRouter);
 
 // Centralized error handling middleware
 app.use((err, req, res, next) => {

@@ -241,6 +241,19 @@
 
     <!-- Verified Passport Details Card -->
     <div id="passportCard" class="passport-card">
+      <!-- Suspicious Scan Anomaly / Counterfeit Alert Banner -->
+      <div id="counterfeitWarningBanner" class="alert alert-danger" style="display: none; margin-bottom: 1.5rem; border: 2px solid #ef4444; background: rgba(239, 68, 68, 0.15);">
+        <div style="display: flex; gap: 0.75rem; align-items: flex-start;">
+          <span style="font-size: 1.75rem; line-height: 1;">&#9888;</span>
+          <div>
+            <strong style="font-size: 1.05rem; color: #f87171;">COUNTERFEIT / CLONED QR ALERT (Suspicious Scan Activity)</strong>
+            <p style="margin: 0.35rem 0 0 0; font-size: 0.88rem; color: #cbd5e1;" id="counterfeitWarningDetails">
+              This passport identifier has exceeded legitimate scan limits or has been scanned across multiple distinct networks. An authentic QR label may have been photocopied or cloned onto counterfeit hardware.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <div class="passport-header">
         <div>
           <span id="authenticityBadge" class="badge badge-success" style="font-size: 0.85rem; padding: 0.35rem 0.75rem; margin-bottom: 0.5rem;">
@@ -294,6 +307,11 @@
         <div class="detail-item">
           <div class="detail-label">Warranty Status</div>
           <div class="detail-value" id="viewProdWarranty"><span class="badge badge-secondary" style="background:rgba(255,255,255,0.08);">No Warranty</span></div>
+        </div>
+
+        <div class="detail-item">
+          <div class="detail-label">Passport Verification Scans</div>
+          <div class="detail-value" id="viewProdScanCount">&mdash;</div>
         </div>
 
         <div class="detail-item">
