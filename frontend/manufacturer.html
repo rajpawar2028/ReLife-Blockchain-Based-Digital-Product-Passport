@@ -198,6 +198,26 @@
           </tbody>
         </table>
       </div>
+
+      <!-- Pagination Controls -->
+      <div id="tablePagination" style="display: none; align-items: center; justify-content: space-between; padding: 1rem; border-top: 1px solid var(--dark-border); flex-wrap: wrap; gap: 0.75rem;">
+        <div style="display: flex; align-items: center; gap: 0.5rem;">
+          <span style="font-size: 0.85rem; color: var(--text-muted);">Rows per page:</span>
+          <select id="pageSizeSelect" style="background: var(--bg-card); border: 1px solid var(--dark-border); color: var(--text-main); padding: 0.3rem 0.5rem; border-radius: var(--radius-sm); font-size: 0.85rem;">
+            <option value="5">5</option>
+            <option value="10" selected>10</option>
+            <option value="25">25</option>
+          </select>
+          <span id="tableLoadingSpinner" style="display: none; font-size: 0.85rem; color: var(--secondary);">⏳ Loading page...</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <span id="pageInfo" style="font-size: 0.85rem; color: var(--text-muted);">Page 1 of 1</span>
+          <div style="display: flex; gap: 0.5rem;">
+            <button id="prevPageBtn" class="btn btn-outline" style="padding: 0.3rem 0.75rem; font-size: 0.85rem;" disabled>&larr; Prev</button>
+            <button id="nextPageBtn" class="btn btn-outline" style="padding: 0.3rem 0.75rem; font-size: 0.85rem;" disabled>Next &rarr;</button>
+          </div>
+        </div>
+      </div>
     </div>
   </main>
 

@@ -31,7 +31,7 @@
 ## Code Quality & Security Enhancement Roadmap (6 Areas)
 
 - [x] **Area 1: Events for Every State Change + Reading History from Events** — Every state-changing function emits indexed productId and actor; AuthenticityHashSet added; frontend builds history via batched queryFilter starting from deploymentBlock; tests assert every event with arguments.
-- [ ] **Area 2: Pagination for Product Lists** — Contract view pagination (offset, limit cap 50) + per-manufacturer index; frontend Prev/Next controls, page sizes, empty state.
+- [x] **Area 2: Pagination for Product Lists** — Contract view pagination (offset, limit cap 50) + per-manufacturer index; frontend Prev/Next controls, page sizes, empty state.
 - [ ] **Area 3: Pausable + Role Revocation for Emergencies** — OpenZeppelin Pausable, admin pause/unpause, whenNotPaused on mutators, last admin protection, Admin portal banner and controls.
 - [ ] **Area 4: Backend Input Validation & Rate Limiting** — Server-side validation, file magic byte checking, memoryStorage, express-rate-limit, helmet, CORS whitelist.
 - [ ] **Area 5: Secrets Hygiene** — Whole-repo secret scan, frontend secret isolation audit, test wallet verification, pre-commit hook script.
@@ -53,7 +53,7 @@
     - Added dedicated manual fallback (`#fallbackManualBtn`) and automatic focus on `#productIdInput` if camera permission is denied or no camera hardware exists.
     - Built comprehensive `parseQrPayload` utility parsing full URLs, query parameters, JSON objects, raw integer IDs, and serial numbers, extracting `productId` and optional `secret`.
     - Added 20 automated tests in `test/CameraScanner.test.js` validating all parsing variants, DOM structure, and permission error handling.
-  - Ran full test suite across 19 test suites: **232 passing tests** with 100% success rate.
+  - Ran full test suite across 20 test suites: **245 passing tests** with 100% success rate.
   - **Live Sepolia Deployment & Artifact Export**:
     - Deployed updated contract with end-to-end warranty configuration at registration to Ethereum Sepolia at [`0x315550A78C276cEb7fa5F54EeE91A03e2fb72dcc`](https://sepolia.etherscan.io/address/0x315550A78C276cEb7fa5F54EeE91A03e2fb72dcc).
     - Verified bytecode confirmed on-chain (21,502 bytes deployed, `getCode != "0x"`).

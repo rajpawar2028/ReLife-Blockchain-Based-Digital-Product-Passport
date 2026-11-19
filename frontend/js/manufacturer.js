@@ -16,6 +16,16 @@ document.addEventListener("DOMContentLoaded", async () => {
   const txStatusMessage = document.getElementById("txStatusMessage");
   const productsTableBody = document.getElementById("productsTableBody");
   const noProductsRow = document.getElementById("noProductsRow");
+  const tablePagination = document.getElementById("tablePagination");
+  const pageSizeSelect = document.getElementById("pageSizeSelect");
+  const pageInfo = document.getElementById("pageInfo");
+  const prevPageBtn = document.getElementById("prevPageBtn");
+  const nextPageBtn = document.getElementById("nextPageBtn");
+  const tableLoadingSpinner = document.getElementById("tableLoadingSpinner");
+
+  let currentPage = 1;
+  let pageSize = 10;
+  let totalManufacturerProducts = 0;
 
   const API_BASE = window.location.origin.includes("5000")
     ? window.location.origin
@@ -45,8 +55,37 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   // Re-check on account change
   ReLifeWallet.on("accountChanged", async () => {
+    currentPage = 1;
     await updateWalletUI();
   });
+
+  // Pagination controls
+  if (pageSizeSelect) {
+    pageSizeSelect.addEventListener("change", async (e) => {
+      pageSize = parseInt(e.target.value, 10) || 10;
+      currentPage = 1;
+      await loadManufacturerProducts(userAccount);
+    });
+  }
+
+  if (prevPageBtn) {
+    prevPageBtn.addEventListener("click", async () => {
+      if (currentPage > 1) {
+        currentPage--;
+        await loadManufacturerProducts(userAccount);
+      }
+    });
+  }
+
+  if (nextPageBtn) {
+    nextPageBtn.addEventListener("click", async () => {
+      const maxPage = Math.ceil(totalManufacturerProducts / pageSize) || 1;
+      if (currentPage < maxPage) {
+        currentPage++;
+        await loadManufacturerProducts(userAccount);
+      }
+    });
+  }
 
   /**
    * Updates wallet connection status and role-based UI visibility.
@@ -282,49 +321,83 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   /**
-   * Loads products registered by the current manufacturer
+   * Loads products registered by the current manufacturer with pagination support
    */
   async function loadManufacturerProducts(manufacturerAddress) {
+    if (!manufacturerAddress) return;
     try {
       const contract = ReLifeWallet.contract || ReLifeWallet.getReadOnlyContract();
       if (!contract) return;
 
-      const filter = contract.filters.ProductRegistered(null, null, manufacturerAddress);
-      const events = await contract.queryFilter(filter, -5000); // query recent 5000 blocks
+      if (tableLoadingSpinner) tableLoadingSpinner.style.display = "inline";
 
-      if (events.length === 0) {
+      let products = [];
+      let total = 0;
+
+      // 1. Query paginated contract method
+      if (typeof contract.getProductsByManufacturerPaginated === "function") {
+        const offset = BigInt((currentPage - 1) * pageSize);
+        const limit = BigInt(pageSize);
+        const res = await contract.getProductsByManufacturerPaginated(manufacturerAddress, offset, limit);
+        products = res[0] || res.items || [];
+        total = Number(res[1] !== undefined ? res[1] : (res.total || 0));
+      } else {
+        // Fallback for older contract deployments
+        const filter = contract.filters.ProductRegistered(null, null, manufacturerAddress);
+        const events = await contract.queryFilter(filter, -5000);
+        total = events.length;
+        const pageEvents = events.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+        products = await Promise.all(pageEvents.map((ev) => contract.getProduct(ev.args.productId)));
+      }
+
+      totalManufacturerProducts = total;
+
+      if (total === 0 || products.length === 0) {
         if (noProductsRow) noProductsRow.style.display = "table-row";
+        if (tablePagination) tablePagination.style.display = "none";
+        productsTableBody.innerHTML = "";
+        productsTableBody.appendChild(noProductsRow);
         return;
       }
 
       if (noProductsRow) noProductsRow.style.display = "none";
+      if (tablePagination) tablePagination.style.display = "flex";
+
+      // Update Pagination controls
+      const totalPages = Math.ceil(total / pageSize) || 1;
+      if (pageInfo) {
+        pageInfo.textContent = `Page ${currentPage} of ${totalPages} (${total} item${total === 1 ? "" : "s"})`;
+      }
+      if (prevPageBtn) {
+        prevPageBtn.disabled = (currentPage <= 1);
+      }
+      if (nextPageBtn) {
+        nextPageBtn.disabled = (currentPage >= totalPages);
+      }
+
       productsTableBody.innerHTML = "";
 
-      // Fetch on-chain Product struct for each registered ID.
-      // In Solidity, dynamic indexed event parameters (string indexed serialNumber) are hashed
-      // as keccak256 topics. Ethers.js decodes them as Indexed objects ({ hash, _isIndexed }),
-      // NOT as the original plaintext serial string. Querying getProduct(id) retrieves the true
-      // unhashed serial string from contract storage.
+      // Fetch warranties for the items on this page (bounded to page size: 5 to 25 items)
       const rawProducts = await Promise.all(
-        events.map(async (event) => {
+        products.map(async (raw) => {
           try {
-            const raw = await contract.getProduct(event.args.productId);
+            const pId = raw.id !== undefined ? raw.id : raw[0];
             let warranty = null;
             let isExpired = false;
             try {
-              const res = await contract.getWarranty(event.args.productId);
+              const res = await contract.getWarranty(pId);
               warranty = res[0];
               isExpired = res[1];
             } catch (_) {}
             return { raw, warranty, isExpired };
           } catch (err) {
-            console.warn(`Could not fetch details for product #${event.args.productId}:`, err);
-            return null;
+            console.warn(`Could not fetch details for product:`, err);
+            return { raw, warranty: null, isExpired: false };
           }
         })
       );
 
-      rawProducts.reverse().forEach((item) => {
+      rawProducts.forEach((item) => {
         if (!item || !item.raw) return;
         const prod = ReLifeWallet.formatProduct(item.raw);
         const wInfo = ReLifeWallet.formatWarranty(item.warranty, item.isExpired);
@@ -374,6 +447,11 @@ document.addEventListener("DOMContentLoaded", async () => {
         productsTableBody.appendChild(tr);
       });
     } catch (err) {
+      console.warn("Could not load manufacturer product logs:", err.message);
+    } finally {
+      if (tableLoadingSpinner) tableLoadingSpinner.style.display = "none";
+    }
+  }
       console.warn("Could not load manufacturer product logs:", err.message);
     }
   }

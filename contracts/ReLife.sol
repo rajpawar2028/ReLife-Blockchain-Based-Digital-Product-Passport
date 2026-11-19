@@ -127,6 +127,9 @@ contract ReLife is AccessControl {
     // Mapping from product ID to keccak256 hash of the off-chain authenticity secret
     mapping(uint256 => bytes32) private _authenticityHashes;
 
+    // Mapping from manufacturer address to array of registered product IDs (for efficient pagination)
+    mapping(address => uint256[]) private _manufacturerProducts;
+
     // -------------------------------------------------------------
     // EVENTS
     // -------------------------------------------------------------
@@ -354,6 +357,7 @@ contract ReLife is AccessControl {
 
         _serialNumberExists[serialNumber] = true;
         _serialToProductId[serialNumber] = newProductId;
+        _manufacturerProducts[msg.sender].push(newProductId);
 
         // Record initial origin ownership in audit trail
         _ownershipHistory[newProductId].push(
@@ -1285,5 +1289,89 @@ contract ReLife is AccessControl {
             revert ReLife__ProductNotFound(productId);
         }
         return _authenticityHashes[productId];
+    }
+
+    // -------------------------------------------------------------
+    // PAGINATION VIEW FUNCTIONS (GAS-EFFICIENT BROWSING)
+    // -------------------------------------------------------------
+    /**
+     * @notice Returns total number of products registered by a specific manufacturer.
+     * @param manufacturer Address of the manufacturer.
+     */
+    function getManufacturerProductCount(address manufacturer) external view returns (uint256) {
+        return _manufacturerProducts[manufacturer].length;
+    }
+
+    /**
+     * @notice Returns a paginated slice of all products in the registry.
+     * @dev Offset is 0-based. Limit is capped at a maximum of 50 to prevent RPC gas timeouts.
+     * @param offset 0-based starting index.
+     * @param limit Maximum number of items to return (capped at 50; default 10 if 0).
+     * @return items Array of Product structs.
+     * @return total Total number of registered products.
+     */
+    function getProductsPaginated(
+        uint256 offset,
+        uint256 limit
+    ) external view returns (Product[] memory items, uint256 total) {
+        total = _productIdCounter;
+        if (limit > 50) {
+            limit = 50;
+        }
+        if (limit == 0) {
+            limit = 10;
+        }
+        if (offset >= total) {
+            return (new Product[](0), total);
+        }
+
+        uint256 remaining = total - offset;
+        uint256 count = remaining < limit ? remaining : limit;
+        items = new Product[](count);
+
+        for (uint256 i = 0; i < count; i++) {
+            uint256 productId = offset + i + 1;
+            items[i] = _products[productId];
+        }
+
+        return (items, total);
+    }
+
+    /**
+     * @notice Returns a paginated slice of products registered by a specific manufacturer.
+     * @dev Uses the per-manufacturer index to eliminate full product scans.
+     * @param manufacturer Address of the manufacturer.
+     * @param offset 0-based starting index within the manufacturer's products.
+     * @param limit Maximum number of items to return (capped at 50; default 10 if 0).
+     * @return items Array of Product structs.
+     * @return total Total number of products registered by this manufacturer.
+     */
+    function getProductsByManufacturerPaginated(
+        address manufacturer,
+        uint256 offset,
+        uint256 limit
+    ) external view returns (Product[] memory items, uint256 total) {
+        uint256[] storage prodIds = _manufacturerProducts[manufacturer];
+        total = prodIds.length;
+        if (limit > 50) {
+            limit = 50;
+        }
+        if (limit == 0) {
+            limit = 10;
+        }
+        if (offset >= total) {
+            return (new Product[](0), total);
+        }
+
+        uint256 remaining = total - offset;
+        uint256 count = remaining < limit ? remaining : limit;
+        items = new Product[](count);
+
+        for (uint256 i = 0; i < count; i++) {
+            uint256 productId = prodIds[offset + i];
+            items[i] = _products[productId];
+        }
+
+        return (items, total);
     }
 }

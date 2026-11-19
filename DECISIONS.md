@@ -126,6 +126,13 @@
 - **Event-Driven History over On-Chain Storage Loop**: Frontends reconstruct full product pedigrees exclusively by indexing and sorting emitted lifecycle events (`ProductRegistered`, `AuthenticityHashSet`, `StatusChanged`, `WarrantyAdded`, `TransferInitiated`, `TransferAccepted`, `TransferCancelled`, `RepairRecordAdded`, `ProductRecycled`). UI rendering no longer loops over heavy on-chain dynamic storage arrays.
 - **In-Memory Block Timestamp Cache**: Created `_blockTimestampCache` in `ReLifeWallet` to resolve missing event timestamps via `provider.getBlock(ev.blockNumber)` while eliminating redundant RPC network requests when multiple events are mined in the same block.
 
+## Area 2: On-Chain Pagination & Per-Manufacturer Indexing
+- **Per-Manufacturer Index Mapping (`_manufacturerProducts`)**: Appending each `newProductId` to `_manufacturerProducts[msg.sender]` enables instant $O(\text{limit})$ retrieval of a manufacturer's inventory. This eliminates the need for expensive frontend linear scans across all registered global products or relying on volatile event log block windows.
+- **Strict Limit Capping at 50 Items**: EVM `view` functions execute inside the local RPC node's memory. To prevent Denial-of-Service (DoS) and gas limit exceptions caused by unbounded memory allocations (e.g. requesting `limit = 100,000`), the contract strictly enforces `if (limit > 50) limit = 50`.
+- **Fault-Tolerant Out-of-Bounds Offsets**: In traditional array slicing, querying an index beyond the length reverts with an out-of-bounds error. `getProductsPaginated` and `getProductsByManufacturerPaginated` explicitly check `if (offset >= total) return (new Product[](0), total)`. This ensures that frontend pagination components handle page boundaries and deletions gracefully without throwing uncaught exceptions.
+- **Decoupled Page Fetching with Bounded Warranty Enrichment**: The frontend queries the paginated product slice in a single RPC call, and then fetches warranty details for only the items on the active page (max 5–25 calls). This maintains fast rendering and zero UI freezing regardless of whether a manufacturer has 10 or 10,000 products.
+
+
 
 
 
