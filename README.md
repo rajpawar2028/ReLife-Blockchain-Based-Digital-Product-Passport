@@ -21,10 +21,13 @@ Physical consumer products (electronics, luxury goods, industrial machinery) suf
 **ReLife** establishes a verifiable, tamper-evident digital identity for every physical product on the Ethereum blockchain:
 * **Cryptographic Identity**: Each product receives a 1-based sequential on-chain ID anchored to its physical etched serial number and decentralized IPFS metadata (origin, materials, carbon footprint).
 * **Role-Governed Lifecycle**: Granular access control ensures that only authorized manufacturers can mint passports, only certified repair centers can record maintenance, and only licensed recyclers can decommission assets.
-* **Deterministic Status State Machine**: Enforces a formal on-chain state machine (`Manufactured -> Sold -> InRepair -> Recycled`) with invalid move guards, repair transfer locks, and terminal recycling freeze.
-* **Dynamic Warranty Expiry Tracking**: Stores verifiable `warrantyStart` and `warrantyEnd` timestamps set by manufacturers or authorized sellers; evaluates real-time validity on-chain via free `isWarrantyValid` view function with days-remaining countdown.
-* **Resilient 2-Step Ownership Transfer**: Implements `initiateTransfer` and `acceptTransfer` with `cancelTransfer` fallback, eliminating accidental loss of passports to mistyped addresses and enforcing locks during repairs or decommissioning.
-* **Authenticity Secret Commitment**: Generates ephemeral 32-byte off-chain secrets printed on tamper-evident packaging QR links and stores only `keccak256(secret)` on-chain; consumers verify physical authenticity via free `verifySecret` view function without exposing the plaintext secret.
+* **Deterministic Status State Machine (Feature 1)**: Enforces a formal on-chain state machine (`Manufactured -> Sold -> InRepair -> Recycled`) with invalid move guards, repair transfer locks, and terminal recycling freeze.
+* **Dynamic Warranty Expiry Tracking (Feature 2)**: Stores verifiable `warrantyStart` and `warrantyEnd` timestamps set by manufacturers or authorized sellers; evaluates real-time validity on-chain via free `isWarrantyValid` view function with days-remaining countdown.
+* **Resilient 2-Step Ownership Transfer (Feature 3)**: Implements `initiateTransfer` and `acceptTransfer` with `cancelTransfer` fallback, eliminating accidental loss of passports to mistyped addresses and enforcing locks during repairs or decommissioning.
+* **Authenticity Secret Commitment (Feature 4)**: Generates ephemeral 32-byte off-chain secrets printed on tamper-evident packaging QR links and stores only `keccak256(secret)` on-chain; consumers verify physical authenticity via free `verifySecret` view function without exposing the plaintext secret.
+* **Scan Counter & Counterfeit Alert (Feature 5)**: Express backend scan telemetry tracking verification frequency and distinct network origins via salted HMAC-SHA256 IP anonymization (strictly zero raw PII). Automatically flags passports when scans exceed thresholds (>5 scans or $\ge 3$ distinct networks in 10 min).
+* **Comprehensive Lifecycle Timeline (Feature 6)**: Dynamic chronological vertical timeline reconstructed from 8 on-chain indexed events (`ProductRegistered`, `StatusChanged`, `WarrantyAdded`, `TransferInitiated`, `TransferAccepted`, `TransferCancelled`, `RepairRecordAdded`, `ProductRecycled`) using safe DOM `textContent`, direct Sepolia Etherscan actor links, and IPFS document links.
+* **Mobile-Optimized Camera QR Scanner (Feature 7)**: In-browser camera scanning via `html5-qrcode` with secure context detection (HTTPS/localhost), permission error handling, universal multi-format QR payload parsing (`parseQrPayload`), and graceful fallback to manual ID entry.
 * **Secondary Market Pedigree**: Auditable chain of custody records every owner transition on-chain without exposing customer Personally Identifiable Information (PII).
 * **Terminal Recycling Freeze**: Decommissioned hardware is permanently flagged as recycled on-chain, preventing counterfeit resurrection of discarded serial numbers.
 * **Frictionless Consumer Verification**: Anyone can scan a physical QR code on a smartphone to audit product pedigree and warranty status **without installing a wallet or paying gas fees**.
@@ -114,11 +117,11 @@ flowchart TD
 
 The ReLife core contract is deployed and verified on Ethereum Sepolia:
 
-* **Contract Address**: [`0x7e8bE6a472f0638D403776B9643c914A48e6b3a6`](https://sepolia.etherscan.io/address/0x7e8bE6a472f0638D403776B9643c914A48e6b3a6)
+* **Contract Address**: [`0x61B941B43ba4C39bDA4d6138DA50977EB43D3734`](https://sepolia.etherscan.io/address/0x61B941B43ba4C39bDA4d6138DA50977EB43D3734)
 * **Contract Administrator**: `0xd75dC45aEDDa24Bc3d3e92B03D75b828f473530E`
 * **Network**: Ethereum Sepolia Testnet
 * **Chain ID**: `11155111` (`0xaa36a7`)
-* **Live Etherscan Explorer**: [View Verified Contract on Sepolia Etherscan](https://sepolia.etherscan.io/address/0x7e8bE6a472f0638D403776B9643c914A48e6b3a6)
+* **Live Etherscan Explorer**: [View Verified Contract on Sepolia Etherscan](https://sepolia.etherscan.io/address/0x61B941B43ba4C39bDA4d6138DA50977EB43D3734)
 
 ---
 

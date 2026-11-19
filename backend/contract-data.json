@@ -1,9 +1,9 @@
 {
   "network": "sepolia",
   "chainId": 11155111,
-  "address": "0x7e8bE6a472f0638D403776B9643c914A48e6b3a6",
+  "address": "0x61B941B43ba4C39bDA4d6138DA50977EB43D3734",
   "deployer": "0xd75dC45aEDDa24Bc3d3e92B03D75b828f473530E",
-  "deployedAt": "2026-11-08T07:15:00.000Z",
+  "deployedAt": "2026-11-19T12:13:04.540Z",
   "abi": [
     {
       "inputs": [],
