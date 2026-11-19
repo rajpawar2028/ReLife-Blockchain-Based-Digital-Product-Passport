@@ -61,8 +61,8 @@
   - **Area 6 (Failure-Case Tests, Gas Report & Code Coverage)**: Built comprehensive negative testing suite with 31 failure tests covering unauthorized callers, duplicate serials, nonexistent product IDs, zero addresses, wrong state transitions, paused states, invalid inputs, and boundary values; configured `hardhat-gas-reporter` and authored `GAS_REPORT.md`; achieved **99.02% line coverage** and **100% function/statement coverage** with `solidity-coverage`.
   - Ran full test suite across 26 test suites: **332 passing tests** with 100% success rate!
   - **Live Sepolia Deployment & Artifact Export**:
-    - Deployed updated contract with end-to-end warranty configuration at registration to Ethereum Sepolia at [`0x315550A78C276cEb7fa5F54EeE91A03e2fb72dcc`](https://sepolia.etherscan.io/address/0x315550A78C276cEb7fa5F54EeE91A03e2fb72dcc).
-    - Verified bytecode confirmed on-chain (21,502 bytes deployed, `getCode != "0x"`).
+    - Deployed production contract (with all 6 Quality & Security areas and 7 Advanced Features) to Ethereum Sepolia at [`0x9600044e058A7492F0121b34E0bbe4cBFD707149`](https://sepolia.etherscan.io/address/0x9600044e058A7492F0121b34E0bbe4cBFD707149).
+    - Verified bytecode confirmed on-chain (24,140 bytes deployed, `getCode != "0x"`, deployment block `12169456`).
     - Synchronized single frontend configuration in `frontend/contract-data.json` and `frontend/contract-data.js` (`window.RELIFE_CONFIG`).
     - Synchronized backend ABI and address in `backend/contract-data.json`.
   - **Presentation Resources**: Updated [`DEMO_SCRIPT.md`](DEMO_SCRIPT.md) with an end-to-end 5-minute presentation talk track matching the exact feature sequence.

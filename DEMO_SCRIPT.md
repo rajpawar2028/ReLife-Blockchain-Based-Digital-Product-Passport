@@ -15,7 +15,7 @@ This script is your exact, step-by-step guide for presenting **ReLife** to evalu
 ## 2. System Architecture at a Glance (45 Seconds)
 
 Point to the architecture diagram:
-- **Smart Contract (`ReLife.sol`)**: Deployed on Sepolia testnet at [`0x315550A78C276cEb7fa5F54EeE91A03e2fb72dcc`](https://sepolia.etherscan.io/address/0x315550A78C276cEb7fa5F54EeE91A03e2fb72dcc) using Solidity `0.8.24` and OpenZeppelin `AccessControl`. Employs custom gas errors, formal state machines, and cryptographic secret commitments.
+- **Smart Contract (`ReLife.sol`)**: Deployed on Sepolia testnet at [`0x9600044e058A7492F0121b34E0bbe4cBFD707149`](https://sepolia.etherscan.io/address/0x9600044e058A7492F0121b34E0bbe4cBFD707149) (block `12169456`) using Solidity `0.8.24` and OpenZeppelin `AccessControl`. Employs custom gas errors, formal state machines, emergency Pausable circuit breaker, and cryptographic secret commitments.
 - **Backend API (`server.js` + `pinataService.js` + `scans.js`)**: Express server acting as a secure intermediary for IPFS pinning, ephemeral secret generation, and privacy-preserving scan velocity anomaly detection.
 - **Frontend Layer**: Pure HTML5, modern CSS3, and vanilla JavaScript powered by **Ethers.js v6** and `html5-qrcode`. Zero bundlers required.
 - **Consumer Verification**: Anyone can verify product authenticity by scanning a QR code with their mobile phone **without installing MetaMask or paying any gas**.
@@ -166,9 +166,10 @@ Point to the architecture diagram:
 
 ## 5. Summary Metrics to Highlight
 
-- **Total Unit & Integration Tests**: **214 passing tests** across 18 test suites (100% pass rate).
+- **Total Unit & Integration Tests**: **332 passing tests** across 26 test suites (100% pass rate, 99.02% code coverage).
 - **Contract Language**: Solidity `0.8.24` (OpenZeppelin 5.6.1).
 - **Target Network**: Ethereum Sepolia (`chainId: 11155111`).
-- **Live Contract Address**: [`0x315550A78C276cEb7fa5F54EeE91A03e2fb72dcc`](https://sepolia.etherscan.io/address/0x315550A78C276cEb7fa5F54EeE91A03e2fb72dcc).
+- **Live Contract Address**: [`0x9600044e058A7492F0121b34E0bbe4cBFD707149`](https://sepolia.etherscan.io/address/0x9600044e058A7492F0121b34E0bbe4cBFD707149).
+- **Deployment Block**: `12169456`.
 - **Frontends**: 6 integrated portals with uniform navigation, mobile camera QR scanner (`html5-qrcode`), and safe DOM `textContent` rendering.
 - **Storage**: Ethereum Sepolia (State & Ownership) + Pinata IPFS (Decentralized Media & Documents).

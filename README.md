@@ -118,11 +118,13 @@ flowchart TD
 
 The ReLife core contract is deployed and verified on Ethereum Sepolia:
 
-* **Contract Address**: [`0x315550A78C276cEb7fa5F54EeE91A03e2fb72dcc`](https://sepolia.etherscan.io/address/0x315550A78C276cEb7fa5F54EeE91A03e2fb72dcc)
+* **Contract Address**: [`0x9600044e058A7492F0121b34E0bbe4cBFD707149`](https://sepolia.etherscan.io/address/0x9600044e058A7492F0121b34E0bbe4cBFD707149)
 * **Contract Administrator**: `0xd75dC45aEDDa24Bc3d3e92B03D75b828f473530E`
+* **Deployment Block Number**: `12169456`
 * **Network**: Ethereum Sepolia Testnet
 * **Chain ID**: `11155111` (`0xaa36a7`)
-* **Live Etherscan Explorer**: [View Verified Contract on Sepolia Etherscan](https://sepolia.etherscan.io/address/0x315550A78C276cEb7fa5F54EeE91A03e2fb72dcc)
+* **Bytecode Verified**: 24,140 bytes deployed on-chain (`getCode != "0x"`)
+* **Live Etherscan Explorer**: [View Verified Contract on Sepolia Etherscan](https://sepolia.etherscan.io/address/0x9600044e058A7492F0121b34E0bbe4cBFD707149)
 
 ---
 
@@ -365,6 +367,18 @@ Every state mutation in `ReLife.sol` has been benchmarked for gas efficiency usi
    Reconstructs the complete lifecycle history directly from indexed EVM events (`ProductRegistered`, `StatusChanged`, `WarrantyAdded`, `TransferInitiated`, `TransferAccepted`, `TransferCancelled`, `RepairRecordAdded`, `ProductRecycled`). Renders a chronological vertical timeline with safe DOM `textContent`, direct Sepolia Etherscan actor links, action icons, and IPFS document links.
 8. **Mobile-Optimized Camera QR Scanner (Feature 7)**:
    In-browser camera QR code scanner using `html5-qrcode` with secure context pre-flight (HTTPS / localhost), graceful permission degradation, universal multi-format payload parsing (`parseQrPayload` for URLs, query strings, JSON, or serial numbers), and automatic manual entry fallback.
+9. **Complete State Change Events & Batched Historical Indexing (Area 1)**:
+   Every state modification emits an indexed event log (`AuthenticityHashSet`, `StatusChanged`, `TransferInitiated/Accepted`, `WarrantyAdded`, `RepairRecordAdded`, `ProductRecycled`). History is dynamically queried in batches starting from `deploymentBlock` (`12169456`), eliminating unbounded RPC scans and preventing `-32005` limits.
+10. **On-Chain Pagination & Bounded Retrieval (Area 2)**:
+    View methods (`getProductsPaginated`, `getProductsByManufacturerPaginated`) enforce hard caps of 50 items and per-manufacturer indices (`_manufacturerProducts`), preventing memory Denial-of-Service and supporting safe out-of-bounds offsets.
+11. **Emergency Circuit Breaker & Last-Admin Protection (Area 3)**:
+    Inherits OpenZeppelin `Pausable` with `whenNotPaused` on all 13 mutating methods, retaining full read-only customer verification during pauses. Overridden role methods prevent the last administrator from revoking or renouncing their own role (`ReLife__CannotRevokeLastAdmin`), permanently preventing orphaned contracts.
+12. **Server-Side Validation, Magic Byte Inspection & Rate Limiting (Area 4)**:
+    All input fields undergo strict server-side validation against a category whitelist, trimmed lengths, numeric bounds, and `ethers.isAddress`. File uploads inspect binary magic signatures (PNG, JPEG, WEBP, PDF), reject executables, stream directly via in-memory buffers (5 MB limit), and enforce two-tiered rate limiting (10 req/min for uploads, 429 on 11th; 100 req/min general API).
+13. **Secrets Hygiene & Automated Pre-Commit Defense (Area 5)**:
+    Private keys and Pinata JWT credentials reside strictly on the server and never touch client-side bundles or git history. Automated pre-commit hooks (`scripts/check-secrets.js`) inspect staged diffs on every commit to block accidental credential leaks.
+14. **Comprehensive Failure Matrix & Gas Profiling (Area 6)**:
+    332 automated tests covering unauthorized callers, duplicate serials, nonexistent IDs, zero addresses, state invariant locks, and boundary limits. Rigorous gas profiling in [`GAS_REPORT.md`](GAS_REPORT.md) and 99.02% line coverage (100% statements, 92.25% branches).
 
 ### Mobile Phone Camera Testing Guide
 Because modern mobile operating systems (iOS Safari & Android Chrome) mandate a Secure Context (HTTPS or localhost) for camera access via `getUserMedia`:
