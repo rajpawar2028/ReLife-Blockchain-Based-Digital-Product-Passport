@@ -1300,6 +1300,79 @@ The script:
 #### Q3: How does a Git pre-commit hook protect developers from accidental credential leaks, and how does regex pattern matching identify sensitive tokens?
 > **Model Answer**: A Git pre-commit hook is a client-side lifecycle script located in `.git/hooks/pre-commit` that runs automatically whenever `git commit` is executed. By inspecting staged files (`git diff --cached`), the script parses the staged code using regular expressions targeting known secret structures — such as 64-character hexadecimal strings for Ethereum private keys (`/[a-fA-F0-9]{64}/`) or base64-encoded three-part tokens for JWTs (`/ey...\.ey...\..../`). If a match is found, the hook exits with non-zero status, blocking the commit before the secret can enter the local repository history or be pushed to remote version control.
 
+---
+
+## Area 6: Failure-Case Testing, Gas Profiling & Test Coverage
+
+### 1. New Concepts Explained in Plain English
+
+#### What is Negative Testing (Failure-Case Testing)?
+When beginners write automated tests, they almost always test the **happy path** — the scenario where everything goes right: a manufacturer registers a product, an owner transfers it, and the data matches.
+**Negative testing (failure-case testing)** tests the opposite: *Does the smart contract fail correctly and safely when bad, malicious, or unexpected things happen?*
+In Web3, contracts hold valuable real-world assets and execute in an adversarial environment where anyone on Earth can send raw bytecode transactions to any function. We must test:
+- **Unauthorized Callers**: What happens if an ordinary wallet tries to mint a passport or pause the contract? (Must revert with `AccessControlUnauthorizedAccount` or custom error).
+- **Duplicate Records**: What happens if a manufacturer tries to register a serial number that was already used? (Must revert with `ReLife__SerialAlreadyExists`).
+- **Non-Existent Entities**: What happens if someone requests product ID 0 or an ID that hasn't been minted yet? (Must revert with `ReLife__ProductNotFound`).
+- **Zero Address Guards**: What happens if someone passes `address(0)` to a transfer or role assignment? (Must revert with `ReLife__InvalidAddress`).
+- **State Invariant Locks**: What happens if someone tries to transfer a product that is currently `InRepair` or permanently `Recycled`? (Must revert with `ReLife__ProductInRepair` or `ReLife__ProductAlreadyRecycled`).
+- **Boundary Values**: What happens at the exact numeric limits? (e.g. warranty period of 0 months = valid, 120 months = valid, 121 months = reverts).
+
+#### How Gas Works in the EVM (Opcode Costs & SSTORE)
+Every single computation on the Ethereum Virtual Machine consumes **Gas**. Gas is not money; gas is a measure of computational effort (CPU cycles, memory allocation, and storage writes).
+The most expensive opcode in the entire EVM is **`SSTORE`** (Storage Store — writing a 32-byte word to permanent contract storage on the blockchain):
+- **Cold Storage Write**: Writing to a storage slot that has never been touched in that transaction costs **22,100 gas**!
+- **Warm Storage Write**: Modifying a storage slot that was already read or written in that transaction costs only **2,900 gas** (or 100 gas for reading `SLOAD`).
+- When `registerProductWithWarranty` executes, it touches multiple mappings and arrays (`_products`, `_serialNumberExists`, `_manufacturerProducts`, `_productWarranties`, `_ownershipHistory`), performing at least 6 cold `SSTORE` operations. This is why minting costs ~536,000 gas.
+
+#### Storage Packing Optimization
+In Solidity, contract storage is divided into 32-byte slots (256 bits).
+If you declare:
+```solidity
+uint256 timestamp; // Takes full 32 bytes (slot 0)
+uint8 status;      // Takes 1 byte, but wastes the remaining 31 bytes of slot 1!
+bool isRecycled;   // Takes 1 byte, but wastes the remaining 31 bytes of slot 2!
+```
+The EVM will allocate **three separate 32-byte slots** (costing up to $3 \times 22,100 = 66,300$ gas for cold writes).
+By **packing** variables:
+```solidity
+uint48 timestamp;  // 6 bytes (safe until year 8,921,556 AD!)
+uint8 status;      // 1 byte
+bool isRecycled;   // 1 byte
+// Total = 8 bytes <= 32 bytes! Fits in ONE single storage slot!
+```
+The Solidity compiler packs all three variables into a single 32-byte storage slot, turning 3 expensive `SSTORE` operations into 1, saving ~40,000 gas per transaction!
+
+#### Calldata vs. Memory
+In Solidity function parameters for reference types (`string`, `bytes`, dynamic arrays):
+- **`memory`**: The EVM allocates new temporary memory on the heap and *copies* the parameter data into it. Copying costs CPU gas.
+- **`calldata`**: An immutable, read-only bytecode area containing the raw transaction input data. The EVM reads the data directly *without copying*.
+- If a function only reads a string parameter without modifying it (e.g. `secret`, `brand`, `model`), marking it as `string calldata` rather than `string memory` avoids memory expansion gas.
+
+#### Code Coverage: Statements, Branches, Functions, Lines
+When running `npx hardhat coverage`:
+- **Statement Coverage**: Did our tests execute every single programming statement? (ReLife: **100%**)
+- **Function Coverage**: Did our tests invoke every single public, external, and internal function? (ReLife: **100%**)
+- **Line Coverage**: Did our tests run through every line of code? (ReLife: **99.02%**)
+- **Branch Coverage**: If a line has an `if (condition)` check, did our tests verify both when the condition is `true` AND when it is `false`? (ReLife: **92.25%**)
+- Branch coverage is the gold standard for security because vulnerabilities often hide in untested `false` or edge-case branches.
+
+---
+
+### 2. Three Viva / Interview Questions You Should Be Able to Answer (Area 6)
+
+#### Q1: Why is negative testing (testing failure cases and reverts) even more critical for smart contracts than for traditional web APIs?
+> **Model Answer**: In traditional web development, a server-side bug can be patched with an immediate hotfix deployment, and databases can be restored from backup. Smart contracts, however, are **immutable** and execute in an untrusted, adversarial environment with real financial value at stake. Once deployed, any unhandled edge case, missing access control check, or unintended state transition can be exploited by malicious actors with zero opportunity to roll back. Negative testing guarantees that the contract strictly behaves as a closed, deterministic state machine that fails safely and rejects all unauthorized or malformed transactions before deployment.
+
+#### Q2: What causes `registerProductWithWarranty` to be the most expensive function in `ReLife.sol`, and what concrete techniques can optimize its gas consumption?
+> **Model Answer**: `registerProductWithWarranty` consumes ~536,946 gas because it executes multiple cold storage writes (`SSTORE` at 22,100 gas each) across six distinct storage areas: the product struct, the serial number existence mapping, the manufacturer index array, the warranty struct, the custody history array, and event emissions, alongside memory allocations for strings. To optimize this:
+> 1. **Struct Packing**: Combining `uint48 timestamp`, `uint8 status`, and `bool isRecycled` packs three fields into a single 32-byte storage slot, saving ~40,000 gas.
+> 2. **Calldata Parameters**: Changing string arguments from `memory` to `calldata` eliminates heap copying overhead.
+> 3. **Off-Chain IPFS Normalization**: Moving non-critical descriptive strings (`brand`, `model`) into the IPFS JSON metadata rather than storing them in on-chain storage saves an additional ~60,000–80,000 gas.
+
+#### Q3: In code coverage analysis (`solidity-coverage`), why can a test suite achieve 100% line coverage but still fail to achieve 100% branch coverage?
+> **Model Answer**: Line coverage only measures whether a particular line of code was executed at least once. Branch coverage measures whether every possible decision path in control-flow statements (such as `if`, `else`, ternary operators `? :`, and compound boolean expressions `&&` / `||`) was evaluated as both `true` and `false`. For example, in an `if (limit > 50) limit = 50;` statement, executing a test with `limit = 100` executes the line (satisfying line coverage), but if no test executes with `limit <= 50`, the `false` branch is never traversed. Testing both branches is critical in security engineering to guarantee that conditional guards do not harbor unintended side effects.
+
+
 
 
 

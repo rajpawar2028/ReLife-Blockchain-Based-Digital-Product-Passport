@@ -155,6 +155,24 @@
 - **Isolated Testnet Deployer Wallet**: Required that smart contract deployment is performed exclusively by a dedicated testnet wallet holding only Sepolia test ETH, strictly isolated from any mainnet funds. Confirmed that the deployer private key was never committed to version control.
 - **Automated Pre-Commit Defense (`scripts/check-secrets.js`)**: Implemented a standalone pre-commit verification script hooked into `.git/hooks/pre-commit` and `package.json` (`npm run check-secrets`). The hook runs automatically before every `git commit`, inspecting cached/staged changes for `.env` files, 64-hex key assignments, and JWT patterns, immediately aborting the commit if sensitive data is detected.
 
+## Area 6: Failure-Case Testing Matrix, Gas Profiling & Test Coverage
+- **Comprehensive Failure Matrix (Negative Testing)**: Built 31 dedicated failure-case tests in `test/Area6_FailureCasesGas.test.js` validating that the smart contract behaves strictly as a secure state machine that reverts on invalid input or unauthorized state transitions. Tested failure dimensions include:
+  1. *Unauthorized Callers*: Non-admins calling admin role grants/revocations or pause; non-manufacturers calling `registerProduct`; non-repair centers calling `addRepairRecord` or setting `InRepair`; non-recyclers calling `addRecyclingRecord` or setting `Recycled`; non-owners initiating transfers.
+  2. *Duplicate Serials & Nonexistent IDs*: Re-registering existing serial numbers reverts with `ReLife__SerialAlreadyExists`; operations on unminted product IDs (0 or out-of-bounds) revert with `ReLife__ProductNotFound`.
+  3. *Zero Address Guards*: Minting or transferring to `address(0)` reverts with `ReLife__InvalidAddress` or OpenZeppelin `AccessControlInvalidAddress`.
+  4. *State Invariant Locks*: Operations on products in terminal `Status.Recycled` or active `Status.InRepair` revert with `ReLife__ProductAlreadyRecycled` or `ReLife__ProductInRepair`.
+  5. *Emergency Pause Freeze*: When paused, all 13 mutating functions revert with `EnforcedPause()`, while all view functions continue executing normally.
+  6. *Boundary Values & Numeric Limits*: Warranty months at 0 (valid no-warranty), 120 (valid max 10 years), and 121 (reverts with `ReLife__WarrantyPeriodTooLong`); pagination limit cap at 50 and safe empty returns for offsets beyond total count.
+- **Resolving `solidity-coverage` Stack-Too-Deep with `.solcover.js`**: `solidity-coverage` instruments Solidity code by injecting instrumentation probes into AST nodes. In functions returning large tuples (such as `verifyProduct`, which returns 9 variables), these injected probes can exhaust EVM stack depth (16 slots), causing `CompilerError: Stack too deep`. Instead of forcing `viaIR: true` in the main Hardhat config (which would bloat deployed bytecode on mainnet), we configured `.solcover.js` with `configureYulOptimizer: true`. This allows the coverage runner to compile instrumented code successfully while preserving standard, lightweight compilation for normal testing and production deployments.
+- **Gas Profiling Analysis & Optimization Findings (`GAS_REPORT.md`)**: Configured `hardhat-gas-reporter` to benchmark deployment and execution costs.
+  - *Most Expensive Function*: `registerProductWithWarranty` (536,946 gas). Primary drivers: 6 cold storage slot allocations (`SSTORE` at 22,100 gas each), dynamic string storage (`brand`, `model`, `serialNumber`, `metadataURI`), and multiple mapping/array pushes (`_products`, `_serialNumberExists`, `_manufacturerProducts`, `_productWarranties`, `_ownershipHistory`).
+  - *Key Optimization Paths Identified*:
+    1. *Struct Packing*: Packing `timestamp` (`uint48`), `status` (`uint8`), and `isRecycled` (`bool` / `uint8`) into a single 32-byte slot saves ~40,000 gas per product mint.
+    2. *Calldata vs Memory*: Utilizing `calldata` for read-only string parameters saves allocation and copy overhead compared to `memory`.
+    3. *Off-Chain Metadata Normalization*: Migrating descriptive strings (`brand`, `model`, `materials`) entirely into the IPFS JSON schema saves an additional ~60,000–80,000 gas per registration.
+- **Code Coverage Audit**: Executed `npx hardhat coverage`, achieving **100% Statement Coverage**, **100% Function Coverage**, **99.02% Line Coverage**, and **92.25% Branch Coverage** across `contracts/ReLife.sol`, proving comprehensive verification of all security logic and error branches.
+
+
 
 
 

@@ -76,6 +76,11 @@ module.exports = {
   etherscan: {
     apiKey: ETHERSCAN_API_KEY,
   },
+  gasReporter: {
+    enabled: process.env.REPORT_GAS === "true",
+    currency: "USD",
+    noColors: true,
+  },
   paths: {
     sources: "./contracts",
     tests: "./test",

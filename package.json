@@ -4,6 +4,7 @@
   "description": "ReLife - Blockchain Digital Product Passport System",
   "scripts": {
     "test": "hardhat test",
+    "coverage": "hardhat coverage",
     "compile": "hardhat compile",
     "start": "node backend/server.js",
     "backend": "node backend/server.js",

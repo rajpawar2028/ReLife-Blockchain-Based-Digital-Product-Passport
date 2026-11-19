@@ -7,7 +7,8 @@
 [![Ethers.js](https://img.shields.io/badge/Web3-Ethers.js%20v6-2535a0)](https://docs.ethers.org/v6/)
 [![Ethereum](https://img.shields.io/badge/Network-Sepolia%20Testnet-627EEA?logo=ethereum)](https://sepolia.etherscan.io/)
 [![IPFS](https://img.shields.io/badge/Storage-Pinata%20IPFS-65C9C6?logo=ipfs)](https://pinata.cloud/)
-[![Tests](https://img.shields.io/badge/Tests-301%20Passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/Tests-332%20Passing-brightgreen)]()
+[![Coverage](https://img.shields.io/badge/Coverage-99%25%20Lines-brightgreen)]()
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -257,11 +258,15 @@ PORT=5000
 npx hardhat compile
 ```
 
-### 5. Run the Automated Test Suite
+### 5. Run the Automated Test Suite & Coverage
 ```bash
+# Run all 332 unit, integration, and failure-case tests
 npm test
+
+# Generate full code coverage report (99.02% lines, 100% statements)
+npm run coverage
 ```
-*Executes all 171 tests across contract logic, gas benchmarks, state machines, warranty validity, 2-step ownership transfers, authenticity secret verification, backend API validation, and frontend integration.*
+*Executes all 332 tests across 26 test suites covering contract logic, gas benchmarks, state machines, warranty validity, 2-step ownership transfers, authenticity secret verification, backend API validation, failure cases, and frontend integration (100% Statement Coverage, 99.02% Line Coverage).*
 
 ### 6. (Optional) Deploy to Sepolia Testnet
 To deploy a new contract instance to Ethereum Sepolia:
@@ -322,20 +327,23 @@ Follow these steps for a complete live demonstration:
 
 ## 9. EVM Gas Consumption Profile
 
-Every state mutation in `ReLife.sol` has been benchmarked for gas efficiency:
+Every state mutation in `ReLife.sol` has been benchmarked for gas efficiency using `hardhat-gas-reporter`. For an in-depth breakdown of opcodes, SSTORE slot analysis, and optimization opportunities, see the complete [GAS_REPORT.md](file:///E:/Ethereum%20Projects/GAS_REPORT.md).
 
 | Operation | Gas Used | Design Optimization |
 | :--- | :---: | :--- |
-| **Contract Deployment** | `2,947,616 gas` | Solidity `0.8.24` via-IR compilation, OpenZeppelin v5 minimal overhead. |
+| **Contract Deployment** | `2,716,076 gas` | Solidity `0.8.24` optimizer (200 runs), OpenZeppelin v5 minimal overhead. |
 | **registerManufacturer** | `54,847 gas` | Role grant via `bytes32` constants + custom gas errors. |
 | **registerRepairCenter** | `54,871 gas` | Indexed event emission instead of unbounded storage arrays. |
 | **registerRecycler** | `54,934 gas` | Reusable admin onboarding state machine. |
-| **registerProduct (Passport Minting)** | `418,353 gas` | Stores off-chain IPFS hash (`metadataURI`) rather than heavy strings; enforcers global serial mapping. |
+| **registerProduct (Passport Minting)** | `418,353 gas` | Stores off-chain IPFS hash (`metadataURI`) rather than heavy strings; enforces global serial mapping. |
+| **registerProductWithWarranty** | `536,946 gas` | Combined passport registration + on-chain warranty initialization. |
 | **addWarranty** | `126,156 gas` | Single `expiryTimestamp` slot; dynamic verification via free `view` function. |
 | **addRepairRecord** | `260,854 gas` | Chronological dynamic array push (`O(1)` append) with off-chain diagnostics URI. |
 | **transferOwnership** | `105,608 gas` | Direct storage update + immutable custody array push without PII storage. |
 | **addRecyclingRecord** | `280,925 gas` | Terminal lifecycle state flip (`isRecycled = true`) preventing subsequent mutations. |
 | **Read Operations (`getProduct`, `verifyProduct`)** | **`0 gas` (Free)** | EVM `view` functions executed locally via JSON-RPC node without mining fees. |
+
+> **Optimization Summary**: The most gas-intensive function is `registerProductWithWarranty` due to 6 cold storage writes (`SSTORE` at 22,100 gas each) and dynamic string allocations. Proposed production optimizations (struct bit-packing and off-chain string normalization) would yield a ~20% gas reduction. Detailed analysis in [`GAS_REPORT.md`](GAS_REPORT.md).
 
 ---
 
