@@ -172,6 +172,18 @@
     3. *Off-Chain Metadata Normalization*: Migrating descriptive strings (`brand`, `model`, `materials`) entirely into the IPFS JSON schema saves an additional ~60,000–80,000 gas per registration.
 - **Code Coverage Audit**: Executed `npx hardhat coverage`, achieving **100% Statement Coverage**, **100% Function Coverage**, **99.02% Line Coverage**, and **92.25% Branch Coverage** across `contracts/ReLife.sol`, proving comprehensive verification of all security logic and error branches.
 
+## Manufacturer Portal Debugging & Hardening
+- **Root Cause Identification & Resolution**: Diagnosed a fatal JavaScript parse crash (`SyntaxError: missing ) after argument list` / `Unexpected token '}'`) at line 456 of `frontend/js/manufacturer.js`. The crash was caused by orphaned error-handling code left below the closing brace of `loadManufacturerProducts` during Area 2 pagination integration. Because syntax errors abort script execution during the parse phase, `DOMContentLoaded` listeners were never registered, `ReLifeWallet.init()` never ran, and the `#connectWalletBtn` click listener was never attached, leaving the UI permanently unresponsive.
+- **Defensive Event Listener Wire-up**: Moved the `#connectWalletBtn` and `#btnSwitchNetwork` click listeners to the very top of the `DOMContentLoaded` block. By binding click handlers before any network calls, wallet initialization, or table rendering, subsequent asynchronous failures (such as RPC timeouts or missing contract records) can never block the user from interacting with the wallet connection button.
+- **Fault-Tolerant Initialization**: Wrapped `ReLifeWallet.init()` and initial role checks in structured `try / catch` blocks. Runtime errors are rendered on the page using `showStatus("danger", ...)` rather than failing silently or crashing the script.
+- **Multi-State UI Architecture**: Standardized `updateWalletUI()` to handle four explicit, mutually exclusive lifecycle states:
+  1. *Disconnected*: `#authSection` visible, badge shows `"Disconnected"`, forms and alerts hidden.
+  2. *Wrong Network*: `#wrongNetworkAlert` visible with dynamic network chain ID and one-click "Switch to Ethereum Sepolia" button invoking `ReLifeWallet.switchToSepolia()`.
+  3. *Unauthorized*: `#unauthorizedAlert` visible displaying the connected address, informing the user that `MANUFACTURER_ROLE` is required.
+  4. *Authorized*: `#registrationCard` visible with the passport minting form, and paginated product inventory loaded.
+- **Automated Frontend Syntax Verification**: Added automated unit tests in `test/frontend.test.js` compiling every frontend script (`new Function(code)`) during test runs. This guarantees that accidental syntax regressions or orphaned code blocks in frontend JavaScript files are caught immediately during CI/CD.
+
+
 
 
 

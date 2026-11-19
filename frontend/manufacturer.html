@@ -55,6 +55,17 @@
       </button>
     </div>
 
+    <!-- State: Wrong Network Alert -->
+    <div id="wrongNetworkAlert" class="alert alert-warning" style="display: none;">
+      <div>
+        <strong>Wrong Network Detected:</strong> Your connected wallet is on <span id="currentNetworkName">an unsupported network</span>.<br>
+        Please switch to <strong>Ethereum Sepolia</strong> (Chain ID: 11155111) to interact with the ReLife smart contract.<br>
+        <button id="btnSwitchNetwork" class="btn btn-primary" style="margin-top: 0.75rem; padding: 0.4rem 1rem;">
+          Switch to Ethereum Sepolia
+        </button>
+      </div>
+    </div>
+
     <!-- State 2: Unauthorized Wallet Alert -->
     <div id="unauthorizedAlert" class="alert alert-danger" style="display: none;">
       <div>

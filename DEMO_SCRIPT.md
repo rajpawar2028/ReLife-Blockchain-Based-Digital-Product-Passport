@@ -166,7 +166,7 @@ Point to the architecture diagram:
 
 ## 5. Summary Metrics to Highlight
 
-- **Total Unit & Integration Tests**: **332 passing tests** across 26 test suites (100% pass rate, 99.02% code coverage).
+- **Total Unit & Integration Tests**: **334 passing tests** across 26 test suites (100% pass rate, 99.02% code coverage).
 - **Contract Language**: Solidity `0.8.24` (OpenZeppelin 5.6.1).
 - **Target Network**: Ethereum Sepolia (`chainId: 11155111`).
 - **Live Contract Address**: [`0x9600044e058A7492F0121b34E0bbe4cBFD707149`](https://sepolia.etherscan.io/address/0x9600044e058A7492F0121b34E0bbe4cBFD707149).

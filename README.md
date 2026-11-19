@@ -7,7 +7,7 @@
 [![Ethers.js](https://img.shields.io/badge/Web3-Ethers.js%20v6-2535a0)](https://docs.ethers.org/v6/)
 [![Ethereum](https://img.shields.io/badge/Network-Sepolia%20Testnet-627EEA?logo=ethereum)](https://sepolia.etherscan.io/)
 [![IPFS](https://img.shields.io/badge/Storage-Pinata%20IPFS-65C9C6?logo=ipfs)](https://pinata.cloud/)
-[![Tests](https://img.shields.io/badge/Tests-332%20Passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/Tests-334%20Passing-brightgreen)]()
 [![Coverage](https://img.shields.io/badge/Coverage-99%25%20Lines-brightgreen)]()
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -262,13 +262,13 @@ npx hardhat compile
 
 ### 5. Run the Automated Test Suite & Coverage
 ```bash
-# Run all 332 unit, integration, and failure-case tests
+# Run all 334 unit, integration, and failure-case tests
 npm test
 
 # Generate full code coverage report (99.02% lines, 100% statements)
 npm run coverage
 ```
-*Executes all 332 tests across 26 test suites covering contract logic, gas benchmarks, state machines, warranty validity, 2-step ownership transfers, authenticity secret verification, backend API validation, failure cases, and frontend integration (100% Statement Coverage, 99.02% Line Coverage).*
+*Executes all 334 tests across 26 test suites covering contract logic, gas benchmarks, state machines, warranty validity, 2-step ownership transfers, authenticity secret verification, backend API validation, failure cases, and frontend integration (100% Statement Coverage, 99.02% Line Coverage).*
 
 ### 6. (Optional) Deploy to Sepolia Testnet
 To deploy a new contract instance to Ethereum Sepolia:

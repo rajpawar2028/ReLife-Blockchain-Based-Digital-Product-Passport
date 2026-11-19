@@ -106,5 +106,32 @@ describe("Phase 5: Frontend Core & Role-Based UI Verification", function () {
     expect(res.body.metadata.description).to.equal(payload.description);
     expect(res.body.ipfsUri).to.include("ipfs://");
   });
+
+  it("should have zero JavaScript syntax errors in manufacturer.js and all frontend scripts", function () {
+    const scripts = ["js/manufacturer.js", "js/wallet.js", "js/admin.js", "js/owner.js", "js/recycler.js", "js/product.js"];
+    for (const relPath of scripts) {
+      const fullPath = path.join(frontendDir, relPath);
+      const code = fs.readFileSync(fullPath, "utf8");
+      // Compiles code into a function to verify syntax validity without executing browser DOM methods
+      expect(() => new Function(code), `Syntax error in ${relPath}`).to.not.throw();
+    }
+  });
+
+  it("should wire up wallet connection, wrong-network alert, and live listeners in manufacturer.js", function () {
+    const mfgJs = fs.readFileSync(path.join(frontendDir, "js", "manufacturer.js"), "utf8");
+    const mfgHtml = fs.readFileSync(path.join(frontendDir, "manufacturer.html"), "utf8");
+
+    // UI elements present in HTML
+    expect(mfgHtml).to.include('id="connectWalletBtn"');
+    expect(mfgHtml).to.include('id="wrongNetworkAlert"');
+    expect(mfgHtml).to.include('id="btnSwitchNetwork"');
+
+    // Wallet logic in JS
+    expect(mfgJs).to.include("ReLifeWallet.init()");
+    expect(mfgJs).to.include("ReLifeWallet.connect()");
+    expect(mfgJs).to.include("ReLifeWallet.switchToSepolia()");
+    expect(mfgJs).to.include('ReLifeWallet.on("accountChanged"');
+    expect(mfgJs).to.include('ReLifeWallet.on("chainChanged"');
+  });
 });
 

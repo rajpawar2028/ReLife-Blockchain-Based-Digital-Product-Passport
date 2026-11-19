@@ -8,6 +8,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const walletBadge = document.getElementById("walletBadge");
   const authSection = document.getElementById("authSection");
   const unauthorizedAlert = document.getElementById("unauthorizedAlert");
+  const wrongNetworkAlert = document.getElementById("wrongNetworkAlert");
+  const btnSwitchNetwork = document.getElementById("btnSwitchNetwork");
+  const currentNetworkName = document.getElementById("currentNetworkName");
   const registrationCard = document.getElementById("registrationCard");
   const productForm = document.getElementById("productForm");
   const submitBtn = document.getElementById("submitProductBtn");
@@ -34,30 +37,56 @@ document.addEventListener("DOMContentLoaded", async () => {
   let userAccount = null;
   let isManufacturer = false;
 
-  // Initialize Wallet
-  await ReLifeWallet.init();
-  updateWalletUI();
+  // 1. Attach Connect button click handler immediately (so it is never blocked)
+  if (connectBtn) {
+    connectBtn.addEventListener("click", async () => {
+      try {
+        connectBtn.disabled = true;
+        connectBtn.innerText = "Connecting...";
+        await ReLifeWallet.connect();
+        await updateWalletUI();
+      } catch (err) {
+        console.error("Wallet connection failed:", err);
+        showStatus("danger", "Failed to connect wallet: " + (err.reason || err.message || err));
+      } finally {
+        connectBtn.disabled = false;
+        connectBtn.innerText = "Connect Wallet";
+      }
+    });
+  }
 
-  // Connect button click
-  connectBtn.addEventListener("click", async () => {
-    try {
-      connectBtn.disabled = true;
-      connectBtn.innerText = "Connecting...";
-      await ReLifeWallet.connect();
-      await updateWalletUI();
-    } catch (err) {
-      alert("Failed to connect wallet: " + err.message);
-    } finally {
-      connectBtn.disabled = false;
-      connectBtn.innerText = "Connect Wallet";
-    }
-  });
+  // Network Switch Button
+  if (btnSwitchNetwork) {
+    btnSwitchNetwork.addEventListener("click", async () => {
+      try {
+        await ReLifeWallet.switchToSepolia();
+        await updateWalletUI();
+      } catch (err) {
+        showStatus("danger", "Failed to switch network: " + (err.reason || err.message || err));
+      }
+    });
+  }
 
-  // Re-check on account change
+  // 2. Re-check on account change
   ReLifeWallet.on("accountChanged", async () => {
     currentPage = 1;
     await updateWalletUI();
   });
+
+  // Re-check on chain change
+  ReLifeWallet.on("chainChanged", async () => {
+    currentPage = 1;
+    await updateWalletUI();
+  });
+
+  // 3. Initialize Wallet Session in try/catch (restores existing connection without popup)
+  try {
+    await ReLifeWallet.init();
+    await updateWalletUI();
+  } catch (initErr) {
+    console.error("Wallet initialization failed:", initErr);
+    showStatus("danger", "Wallet initialization failed: " + (initErr.message || initErr));
+  }
 
   // Pagination controls
   if (pageSizeSelect) {
@@ -93,18 +122,48 @@ document.addEventListener("DOMContentLoaded", async () => {
   async function updateWalletUI() {
     userAccount = ReLifeWallet.account;
 
+    // State 1: Disconnected
     if (!userAccount) {
-      walletBadge.innerHTML = `<span class="badge badge-warning">Disconnected</span>`;
-      authSection.style.display = "block";
-      unauthorizedAlert.style.display = "none";
-      registrationCard.style.display = "none";
+      if (walletBadge) walletBadge.innerHTML = `<span class="badge badge-warning">Disconnected</span>`;
+      if (authSection) authSection.style.display = "block";
+      if (unauthorizedAlert) unauthorizedAlert.style.display = "none";
+      if (wrongNetworkAlert) wrongNetworkAlert.style.display = "none";
+      if (registrationCard) registrationCard.style.display = "none";
       return;
     }
 
     const shortAddr = `${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
-    walletBadge.innerHTML = `
-      <span class="badge badge-info">${shortAddr}</span>
-    `;
+    if (walletBadge) {
+      walletBadge.innerHTML = `<span class="badge badge-info">${shortAddr}</span>`;
+    }
+
+    // State 2: Wrong Network or Missing Deployed Bytecode
+    const chainId = ReLifeWallet.chainId;
+    const isSepolia = (chainId === 11155111n || chainId === 11155111);
+    const isHardhat = (chainId === 31337n || chainId === 31337);
+
+    let hasBytecode = true;
+    const provider = ReLifeWallet.provider || (window.ethereum ? new ethers.BrowserProvider(window.ethereum) : null);
+    if (provider && window.RELIFE_CONFIG?.address) {
+      try {
+        const code = await provider.getCode(window.RELIFE_CONFIG.address);
+        if (code === "0x" || code === "0x0") hasBytecode = false;
+      } catch (_) {}
+    }
+
+    if ((!isSepolia && !isHardhat) || !hasBytecode) {
+      if (authSection) authSection.style.display = "none";
+      if (unauthorizedAlert) unauthorizedAlert.style.display = "none";
+      if (registrationCard) registrationCard.style.display = "none";
+      if (wrongNetworkAlert) {
+        wrongNetworkAlert.style.display = "block";
+        if (currentNetworkName) {
+          currentNetworkName.textContent = chainId ? `Chain ID ${chainId}` : "Unsupported Network";
+        }
+      }
+      return;
+    }
+    if (wrongNetworkAlert) wrongNetworkAlert.style.display = "none";
 
     // Check MANUFACTURER_ROLE on-chain
     try {
@@ -118,18 +177,22 @@ document.addEventListener("DOMContentLoaded", async () => {
       isManufacturer = await contract.hasRole(roleHash, userAccount);
 
       if (isManufacturer) {
-        authSection.style.display = "none";
-        unauthorizedAlert.style.display = "none";
-        registrationCard.style.display = "block";
+        // State 4: Authorized Manufacturer
+        if (authSection) authSection.style.display = "none";
+        if (unauthorizedAlert) unauthorizedAlert.style.display = "none";
+        if (registrationCard) registrationCard.style.display = "block";
         await loadManufacturerProducts(userAccount);
       } else {
-        authSection.style.display = "none";
-        unauthorizedAlert.style.display = "block";
-        document.getElementById("unauthorizedAddress").innerText = userAccount;
-        registrationCard.style.display = "none";
+        // State 3: Connected but Unauthorized
+        if (authSection) authSection.style.display = "none";
+        if (unauthorizedAlert) unauthorizedAlert.style.display = "block";
+        const unauthAddrEl = document.getElementById("unauthorizedAddress");
+        if (unauthAddrEl) unauthAddrEl.innerText = userAccount;
+        if (registrationCard) registrationCard.style.display = "none";
       }
     } catch (err) {
       console.error("Role verification failed:", err);
+      showStatus("danger", "Failed to verify manufacturer role on-chain: " + (err.reason || err.message));
     }
   }
 
@@ -450,9 +513,6 @@ document.addEventListener("DOMContentLoaded", async () => {
       console.warn("Could not load manufacturer product logs:", err.message);
     } finally {
       if (tableLoadingSpinner) tableLoadingSpinner.style.display = "none";
-    }
-  }
-      console.warn("Could not load manufacturer product logs:", err.message);
     }
   }
 });
