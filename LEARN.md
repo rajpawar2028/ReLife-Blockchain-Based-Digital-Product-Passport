@@ -918,4 +918,59 @@ In decentralized applications, product names, repair notes, and serial numbers c
 #### Q3: Why is using `textContent` instead of `innerHTML` critical when rendering dynamic on-chain product and repair descriptions on a web page?
 > **Model Answer**: In a public blockchain dApp, anyone with an authorized role can write arbitrary string data into transaction payloads. If user-supplied strings (such as brand names, repair descriptions, or recycling facility notes) contain malicious HTML or JavaScript (e.g., `<script>` or `<img onerror=...>`) and are injected via `innerHTML`, the browser executes the script in the context of the user's session, resulting in a Stored Cross-Site Scripting (XSS) attack that could compromise wallet interactions. Using `node.textContent` guarantees that the browser treats all input as inert text, neutralizing script execution vectors.
 
+---
+
+## Appendix: Feature 7 — Mobile-Optimized Camera QR Scanner
+
+### 1. New Concepts Explained in Plain English
+
+#### How Does In-Browser Camera Scanning Work?
+Instead of forcing consumers to download a native mobile app from an App Store, modern web apps use the **WebRTC MediaDevices API**:
+1. JavaScript calls `navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })` to request the phone's back-facing camera.
+2. The browser renders video frames to an HTML `<video>` or `<canvas>` element.
+3. The `html5-qrcode` library scans frames in real time, detecting 2D QR finder patterns and decoding the binary string.
+
+#### Why Do Mobile Browsers Require HTTPS for Camera Access?
+If you open `http://192.168.1.15:5000` on your iPhone or Android, the camera will fail with `NotSupportedError`:
+- **The Security Reason**: Cameras and microphones are sensitive hardware. If an unencrypted HTTP connection allowed camera access, a malicious Wi-Fi hotspot operator could perform a Man-in-the-Middle (MitM) attack and secretly inject code to record you.
+- Web standards strictly limit `getUserMedia` to **Secure Contexts**:
+  - `https://...` (encrypted SSL/TLS)
+  - `http://localhost` or `http://127.0.0.1` (local machine loopback)
+
+#### How to Test Camera QR Scanning on a Real Smartphone
+Here are the three easiest ways to test camera scanning on your phone:
+1. **Method A — Free HTTPS Tunnel (Fastest & Recommended)**:
+   Run a free tunneling tool from your terminal:
+   ```bash
+   npx cloudflared tunnel --url http://localhost:5000
+   # OR
+   npx localtunnel --port 5000
+   # OR
+   ngrok http 5000
+   ```
+   This generates a public `https://...` link that you can open on your phone's browser with full camera permissions enabled!
+2. **Method B — Chrome USB Remote Debugging (Localhost on Phone)**:
+   Connect your Android phone to your PC with a USB cable. Open `chrome://inspect` on your PC, enable **Port Forwarding** (`5000 -> localhost:5000`), and open `http://localhost:5000` on your phone's Chrome browser. Because the phone treats it as `localhost`, camera access is allowed!
+3. **Method C — Cloud Deployment**:
+   Deploy the frontend and backend to Vercel or Railway; automated HTTPS certificates are provided out-of-the-box.
+
+#### Graceful Degradation & Manual Fallbacks
+What if a customer is on an older laptop without a webcam, has camera permissions disabled by workplace policy, or has a scratched QR sticker?
+- ReLife never traps the user in a broken camera view.
+- If permission is denied or no camera is detected, the UI displays a clear inline banner, provides an **"Enter ID Manually Instead"** button, and automatically focuses the search input field.
+
+---
+
+### 2. Three Viva / Interview Questions You Should Be Able to Answer (Feature 7)
+
+#### Q1: Why do modern mobile web browsers require HTTPS (or localhost) to access the device camera via `getUserMedia`?
+> **Model Answer**: Web browsers enforce the Secure Contexts specification (W3C) for privacy-sensitive hardware APIs including cameras, microphones, and geolocation. Over an unencrypted plain HTTP connection, network traffic can be intercepted, altered, or injected by a malicious actor (Man-in-the-Middle attack) on public Wi-Fi. Mandating HTTPS guarantees end-to-end encryption and cryptographic integrity, preventing rogue third parties from hijacking media streams or spoofing permission prompts.
+
+#### Q2: How can a developer test mobile camera scanning on a real phone while running a development server locally on `http://localhost:5000`?
+> **Model Answer**: Because accessing `http://<LAN-IP>:5000` from a phone lacks HTTPS and blocks camera access, developers use one of two main approaches: (1) **HTTPS Tunneling**: Tools like Cloudflare Tunnel (`cloudflared tunnel --url http://localhost:5000`), localtunnel, or ngrok provide a temporary, secure HTTPS public URL that forwards traffic to local port 5000 with valid SSL certificates. (2) **USB Remote Port Forwarding**: Connecting an Android device via USB and enabling Port Forwarding in `chrome://inspect` maps phone port 5000 to PC port 5000, allowing the phone to access the app via `http://localhost:5000`, which browsers treat as a Secure Context.
+
+#### Q3: Why is supporting graceful fallback to manual ID entry essential for a consumer-facing Digital Product Passport application?
+> **Model Answer**: While QR scanning offers convenience, real-world deployment environments vary widely: consumers may use desktop PCs without webcams, corporate browsers with camera permissions disabled, or older devices. Additionally, physical QR packaging stickers can suffer physical abrasion, smudging, or tearing in transit. Providing automated error detection (`NotAllowedError`, `NotFoundError`) paired with manual ID and serial number lookups ensures 100% service availability and accessibility across all user devices.
+
+
 

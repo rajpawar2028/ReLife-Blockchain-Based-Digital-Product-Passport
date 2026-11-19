@@ -9,7 +9,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const verifyBtn = document.getElementById("verifyBtn");
   const toggleScannerBtn = document.getElementById("toggleScannerBtn");
   const closeScannerBtn = document.getElementById("closeScannerBtn");
+  const fallbackManualBtn = document.getElementById("fallbackManualBtn");
   const scannerWrapper = document.getElementById("scannerWrapper");
+  const scannerStatusMessage = document.getElementById("scannerStatusMessage");
   const loadingCard = document.getElementById("loadingCard");
   const notFoundCard = document.getElementById("notFoundCard");
   const searchedIdDisplay = document.getElementById("searchedIdDisplay");
@@ -135,66 +137,252 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
-  // 3. Camera Scanner Controls
-  toggleScannerBtn.addEventListener("click", () => {
-    startCameraScanner();
-  });
+  // 3. Camera Scanner Controls & Mobile QR Decoding
+  if (toggleScannerBtn) {
+    toggleScannerBtn.addEventListener("click", () => {
+      startCameraScanner();
+    });
+  }
 
-  closeScannerBtn.addEventListener("click", () => {
-    stopCameraScanner();
-  });
+  if (closeScannerBtn) {
+    closeScannerBtn.addEventListener("click", () => {
+      stopCameraScanner();
+    });
+  }
 
-  function startCameraScanner() {
+  if (fallbackManualBtn) {
+    fallbackManualBtn.addEventListener("click", () => {
+      stopCameraScanner();
+      if (productIdInput) {
+        productIdInput.focus();
+        productIdInput.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
+  }
+
+  function showScannerAlert(type, message) {
+    if (!scannerStatusMessage) return;
+    scannerStatusMessage.style.display = "block";
+    scannerStatusMessage.className = `alert alert-${type === "error" ? "danger" : type === "warning" ? "warning" : "info"}`;
+    scannerStatusMessage.style.background = type === "error" ? "rgba(239, 68, 68, 0.2)" : "rgba(245, 158, 11, 0.2)";
+    scannerStatusMessage.style.border = `1px solid ${type === "error" ? "#ef4444" : "#f59e0b"}`;
+    scannerStatusMessage.textContent = message;
+  }
+
+  function hideScannerAlert() {
+    if (scannerStatusMessage) {
+      scannerStatusMessage.style.display = "none";
+      scannerStatusMessage.textContent = "";
+    }
+  }
+
+  /**
+   * Pure function parsing a decoded QR string into passport identifiers
+   */
+  function parseQrPayload(raw) {
+    if (!raw || typeof raw !== "string") {
+      return { invalid: true, reason: "Empty or invalid QR content" };
+    }
+    const text = raw.trim();
+
+    // 1. JSON payload support: {"id": 1, "secret": "..."}
+    if (text.startsWith("{") && text.endsWith("}")) {
+      try {
+        const parsed = JSON.parse(text);
+        const id = parsed.id || parsed.productId;
+        const serial = parsed.serial || parsed.serialNumber;
+        const secret = parsed.secret || null;
+        if (id) {
+          return { productId: id.toString(), secret, isUrl: false };
+        }
+        if (serial) {
+          return { serial: serial.toString(), secret, isUrl: false };
+        }
+      } catch (_) {}
+    }
+
+    // 2. URL parsing (absolute or relative)
+    try {
+      let urlObj = null;
+      if (text.startsWith("http://") || text.startsWith("https://")) {
+        urlObj = new URL(text);
+      } else if (text.includes("product.html") || text.startsWith("/") || text.startsWith("?")) {
+        urlObj = new URL(text, "https://relife.local");
+      }
+
+      if (urlObj) {
+        const id = urlObj.searchParams.get("id") || urlObj.searchParams.get("productId");
+        const secret = urlObj.searchParams.get("secret");
+        const serial = urlObj.searchParams.get("serial") || urlObj.searchParams.get("serialNumber");
+
+        if (id) {
+          return { productId: id.toString(), secret: secret || null, isUrl: true, host: urlObj.host };
+        }
+        if (serial) {
+          return { serial: serial.toString(), secret: secret || null, isUrl: true };
+        }
+        return { invalid: true, reason: "URL does not contain a product ID or serial number", raw: text };
+      }
+    } catch (_) {}
+
+    // 3. Query string only (e.g. "id=12&secret=xyz")
+    if (text.includes("id=") || text.includes("serial=")) {
+      try {
+        const params = new URLSearchParams(text.startsWith("?") ? text.slice(1) : text);
+        const id = params.get("id") || params.get("productId");
+        const secret = params.get("secret");
+        const serial = params.get("serial") || params.get("serialNumber");
+        if (id) {
+          return { productId: id.toString(), secret: secret || null, isUrl: false };
+        }
+        if (serial) {
+          return { serial: serial.toString(), secret: secret || null, isUrl: false };
+        }
+      } catch (_) {}
+    }
+
+    // 4. Raw numeric ID (e.g. "42")
+    if (/^\d+$/.test(text)) {
+      return { productId: text, secret: null, isUrl: false };
+    }
+
+    // 5. Serial number format (e.g. "SN-...", alphanumeric with hyphens)
+    if (/^[A-Za-z0-9\-_]{4,}$/.test(text)) {
+      return { serial: text, secret: null, isUrl: false };
+    }
+
+    return { invalid: true, reason: "Unrecognized QR format", raw: text };
+  }
+
+  // Expose parser globally for testability and verification
+  window.ReLifeScanner = {
+    parseQrPayload,
+    startCameraScanner,
+    stopCameraScanner,
+  };
+
+  async function startCameraScanner() {
+    if (!scannerWrapper) return;
     scannerWrapper.style.display = "block";
+    hideScannerAlert();
 
-    if (!html5QrcodeScanner && window.Html5QrcodeScanner) {
+    // Check secure context for mobile devices
+    const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+    const isSecure = window.isSecureContext || window.location.protocol === "https:" || isLocalhost;
+
+    if (!isSecure) {
+      showScannerAlert(
+        "warning",
+        "Camera blocked: Mobile browsers require HTTPS. Please connect via HTTPS tunnel (ngrok / cloudflared) or use manual entry below."
+      );
+      if (productIdInput) productIdInput.focus();
+    }
+
+    if (!window.Html5QrcodeScanner && !window.Html5Qrcode) {
+      showScannerAlert(
+        "error",
+        "QR Scanner library could not be loaded. Please enter Product ID manually below."
+      );
+      if (productIdInput) productIdInput.focus();
+      return;
+    }
+
+    if (html5QrcodeScanner) {
+      return; // Already initialized
+    }
+
+    try {
       html5QrcodeScanner = new Html5QrcodeScanner(
         "qr-reader",
-        { fps: 10, qrbox: { width: 250, height: 250 } },
+        {
+          fps: 10,
+          qrbox: { width: 250, height: 250 },
+          rememberLastUsedCamera: true,
+        },
         /* verbose= */ false
       );
 
       html5QrcodeScanner.render(
         (decodedText) => {
-          console.log("QR Code Scanned:", decodedText);
-          stopCameraScanner();
-
-          try {
-            const url = new URL(decodedText);
-            const scannedId = url.searchParams.get("id");
-            const scannedSecret = url.searchParams.get("secret");
-            if (scannedSecret && secretInput) {
-              secretInput.value = scannedSecret;
-            }
-            if (scannedId) {
-              productIdInput.value = scannedId;
-              verifyProductPassport(scannedId);
-              return;
-            }
-          } catch (_) {
-            // Not a full URL, treat as raw ID or serial
-          }
-
-          productIdInput.value = decodedText;
-          if (/^\d+$/.test(decodedText)) {
-            verifyProductPassport(decodedText);
-          } else {
-            verifyBySerial(decodedText);
-          }
+          console.log("[QR Scanner] Decoded:", decodedText);
+          handleScannedPayload(decodedText);
         },
         (errorMessage) => {
-          // Scanner scanning frame callback - ignore frame noise
+          // Frame callback - ignore frame noise
         }
       );
+    } catch (err) {
+      console.warn("Failed to initialize Html5QrcodeScanner:", err);
+      handleCameraError(err);
+    }
+  }
+
+  function handleCameraError(err) {
+    const errName = err?.name || "";
+    const errMsg = err?.message || err?.toString() || "";
+
+    if (errName === "NotAllowedError" || errName === "PermissionDeniedError" || errMsg.includes("Permission denied")) {
+      showScannerAlert(
+        "error",
+        "Camera permission was denied. Please allow camera access in your browser site permissions or use manual entry below."
+      );
+    } else if (errName === "NotFoundError" || errName === "DevicesNotFoundError" || errMsg.includes("NotFound")) {
+      showScannerAlert(
+        "error",
+        "No camera device detected on this hardware. Please enter your Product ID or Serial manually below."
+      );
+    } else {
+      showScannerAlert(
+        "error",
+        `Unable to access camera (${errName || "Notice"}). Please enter your Product ID or Serial manually below.`
+      );
+    }
+
+    if (productIdInput) productIdInput.focus();
+  }
+
+  function handleScannedPayload(decodedText) {
+    const result = parseQrPayload(decodedText);
+
+    if (result.invalid) {
+      showScannerAlert(
+        "warning",
+        `Invalid QR code: ${result.reason || "Unrecognized content"}. Please scan an official ReLife passport QR or enter ID manually.`
+      );
+      if (productIdInput) {
+        productIdInput.value = decodedText.slice(0, 50);
+        productIdInput.focus();
+      }
+      return;
+    }
+
+    // Valid scan: Stop camera
+    stopCameraScanner();
+
+    if (result.secret && secretInput) {
+      secretInput.value = result.secret;
+    }
+
+    if (result.productId) {
+      productIdInput.value = result.productId;
+      verifyProductPassport(result.productId);
+    } else if (result.serial) {
+      productIdInput.value = result.serial;
+      verifyBySerial(result.serial);
     }
   }
 
   function stopCameraScanner() {
     if (html5QrcodeScanner) {
-      html5QrcodeScanner.clear().catch(console.error);
+      try {
+        html5QrcodeScanner.clear().catch((e) => console.warn("Scanner clear:", e));
+      } catch (_) {}
       html5QrcodeScanner = null;
     }
-    scannerWrapper.style.display = "none";
+    if (scannerWrapper) {
+      scannerWrapper.style.display = "none";
+    }
+    hideScannerAlert();
   }
 
   /**

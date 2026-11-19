@@ -106,4 +106,11 @@
 - **Strict XSS Immunity via `textContent`**: Product metadata, descriptions, and notes can be authored by arbitrary external parties. To completely eliminate Cross-Site Scripting (XSS) risks, the timeline renderer builds DOM elements with `document.createElement()` and binds all dynamic text via `node.textContent`. No user-controlled strings are ever interpolated into `innerHTML`.
 - **Fault-Tolerant Multi-Filter Querying with View Fallback**: Each event filter is queried inside individual try/catch boundaries. If an RPC provider fails on specific event topics or prunes historical logs, the `getProductHistory` view function acts as an immediate fallback, ensuring service records remain visible.
 
+## Feature 7: Mobile-Optimized Camera QR Scanner
+- **Client-Side Camera Scanning via `html5-qrcode`**: Chosen for its robust WebRTC / `getUserMedia` implementation across iOS Safari and Android Chrome, rendering directly on an HTML5 canvas without requiring native app installs or backend image processing.
+- **Graceful Fallback to Manual ID Entry**: When camera access is blocked or unavailable (`NotAllowedError`, `NotFoundError`, or non-secure origin), the scanner displays an inline status banner, provides a one-click "Enter ID Manually" button, and focuses `#productIdInput` so users are never blocked.
+- **Secure Context (HTTPS / Localhost) Detection**: Modern browsers restrict camera access to Secure Contexts. Pre-flight origin checking detects insecure LAN IPs (`http://192.168.x.x:5000`) and explicitly informs the user that phone camera testing requires an HTTPS tunnel (e.g. ngrok / cloudflared) or localhost.
+- **Universal Multi-Format QR Payload Parser (`parseQrPayload`)**: Implemented a pure, deterministic parser that handles full URLs (`?id=X&secret=Y`), relative paths, query strings, JSON payloads, raw numeric IDs, and serial numbers, extracting `productId` and optional `secret` seamlessly.
+
+
 

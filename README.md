@@ -352,6 +352,21 @@ Every state mutation in `ReLife.sol` has been benchmarked for gas efficiency:
    Off-chain scan analytics engine in the Express backend tracking verification frequency and distinct network origins via salted HMAC-SHA256 IP anonymization (zero PII stored). Automatically flags passports as suspicious when cumulative scans exceed 5 or when scanned across $\ge 3$ distinct networks within 10 minutes, displaying prominent warnings on the verification portal.
 7. **Comprehensive Event-Driven Lifecycle Timeline (Feature 6)**:
    Reconstructs the complete lifecycle history directly from indexed EVM events (`ProductRegistered`, `StatusChanged`, `WarrantyAdded`, `TransferInitiated`, `TransferAccepted`, `TransferCancelled`, `RepairRecordAdded`, `ProductRecycled`). Renders a chronological vertical timeline with safe DOM `textContent`, direct Sepolia Etherscan actor links, action icons, and IPFS document links.
+8. **Mobile-Optimized Camera QR Scanner (Feature 7)**:
+   In-browser camera QR code scanner using `html5-qrcode` with secure context pre-flight (HTTPS / localhost), graceful permission degradation, universal multi-format payload parsing (`parseQrPayload` for URLs, query strings, JSON, or serial numbers), and automatic manual entry fallback.
+
+### Mobile Phone Camera Testing Guide
+Because modern mobile operating systems (iOS Safari & Android Chrome) mandate a Secure Context (HTTPS or localhost) for camera access via `getUserMedia`:
+1. **Free HTTPS Tunnel (Recommended)**:
+   ```bash
+   npx cloudflared tunnel --url http://localhost:5000
+   # OR
+   npx localtunnel --port 5000
+   ```
+   Open the generated secure HTTPS URL on your phone's browser to test live camera scanning.
+2. **Android USB Port Forwarding**:
+   Connect via USB, open `chrome://inspect` on PC, forward port `5000 -> localhost:5000`, and navigate to `http://localhost:5000` on mobile Chrome.
+
 
 
 

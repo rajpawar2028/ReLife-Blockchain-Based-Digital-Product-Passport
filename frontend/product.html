@@ -207,11 +207,17 @@
       </div>
 
       <!-- Live Camera Scanner Area -->
-      <div id="scannerWrapper" class="scanner-wrapper">
-        <div id="qr-reader"></div>
-        <button id="closeScannerBtn" class="btn btn-secondary" style="margin-top: 0.75rem;">
-          Close Scanner
-        </button>
+      <div id="scannerWrapper" class="scanner-wrapper" style="display: none; padding: 1.25rem; margin-top: 1rem;">
+        <div id="scannerStatusMessage" style="display: none; margin-bottom: 0.75rem;" class="alert"></div>
+        <div id="qr-reader" style="width: 100%; max-width: 480px; margin: 0 auto; border-radius: 8px; overflow: hidden;"></div>
+        <div style="margin-top: 1rem; display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap;">
+          <button id="fallbackManualBtn" class="btn btn-secondary" style="font-size: 0.85rem;">
+            &#9998; Enter ID Manually Instead
+          </button>
+          <button id="closeScannerBtn" class="btn btn-secondary" style="font-size: 0.85rem;">
+            &times; Close Scanner
+          </button>
+        </div>
       </div>
     </div>
 
