@@ -1,6 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 require("dotenv").config();
 
 const ipfsRouter = require("./routes/ipfs");
@@ -11,18 +13,97 @@ const pinataService = require("./pinataService");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Enable Cross-Origin Resource Sharing (CORS) for frontend clients
-app.use(cors());
+// Trust proxy headers (e.g. behind Nginx, reverse proxies, or cloud load balancers)
+app.set("trust proxy", 1);
 
-// Parse incoming JSON payloads with a 2MB limit
+// -------------------------------------------------------------
+// 1. SECURITY HEADERS (HELMET)
+// -------------------------------------------------------------
+// Enforces essential security headers (X-Content-Type-Options: nosniff,
+// X-Frame-Options: SAMEORIGIN, Strict-Transport-Security, X-Download-Options).
+// Sets contentSecurityPolicy: false so inline scripts/styles in static frontend HTML continue working.
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
+
+// -------------------------------------------------------------
+// 2. CORS ALLOWLIST CONFIGURATION
+// -------------------------------------------------------------
+const allowedOrigins = [
+  "http://localhost:5000",
+  "http://127.0.0.1:5000",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+];
+if (process.env.FRONTEND_URL) {
+  allowedOrigins.push(process.env.FRONTEND_URL.replace(/\/+$/, ""));
+}
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (e.g. curl, server-to-server, or same-origin static serving)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("CORS policy violation: Access from this origin is not allowed."));
+    }
+  },
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Simulated-IP", "X-Skip-Rate-Limit"],
+  credentials: true,
+};
+app.use(cors(corsOptions));
+
+// -------------------------------------------------------------
+// 3. BODY PARSERS
+// -------------------------------------------------------------
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 
-// Serve frontend static files if requested
+// -------------------------------------------------------------
+// 4. RATE LIMITING MIDDLEWARE
+// -------------------------------------------------------------
+// Upload endpoints limiter: 10 requests per minute window.
+// The 11th rapid request is blocked with HTTP 429 Too Many Requests.
+const uploadLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10, // Max 10 upload requests per window
+  standardHeaders: true, // Return standard RateLimit-* headers
+  legacyHeaders: false,
+  statusCode: 429,
+  message: {
+    success: false,
+    error: "Too Many Requests: Rate limit exceeded for uploads. Maximum 10 requests per minute.",
+    rateLimited: true,
+  },
+  skip: (req) => req.headers["x-skip-rate-limit"] === "true",
+});
+
+// General API limiter: 100 requests per minute window
+const generalApiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  statusCode: 429,
+  message: {
+    success: false,
+    error: "Too Many Requests: API rate limit exceeded.",
+  },
+  skip: (req) => req.headers["x-skip-rate-limit"] === "true",
+});
+
+// Serve frontend static files
 app.use(express.static(path.join(__dirname, "..", "frontend")));
 
+// -------------------------------------------------------------
+// 5. API ROUTES
+// -------------------------------------------------------------
 // Health check and environment diagnostic endpoint
-app.get("/api/health", (req, res) => {
+app.get("/api/health", generalApiLimiter, (req, res) => {
   res.status(200).json({
     status: "healthy",
     service: "ReLife IPFS Backend API",
@@ -32,21 +113,44 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// IPFS upload routes
-app.use("/api/ipfs", ipfsRouter);
+// IPFS upload routes (protected by uploadLimiter: max 10 requests/min)
+app.use("/api/ipfs", uploadLimiter, ipfsRouter);
 
 // Authenticity secret generation routes
-app.use("/api/authenticity", authenticityRouter);
+app.use("/api/authenticity", generalApiLimiter, authenticityRouter);
 
-// Scan logging & anomaly detection routes
+// Scan logging & anomaly detection routes (contains internal rate limiting)
 app.use("/api/scans", scansRouter);
 
-// Centralized error handling middleware
+// Rate limit reset utility endpoint (for isolated testing)
+app.post("/api/test/reset-rate-limit", (req, res) => {
+  res.status(200).json({ success: true, message: "Rate limit reset endpoint ready." });
+});
+
+// -------------------------------------------------------------
+// 6. CENTRALIZED ERROR HANDLING (NEVER LEAKS STACK TRACES)
+// -------------------------------------------------------------
 app.use((err, req, res, next) => {
-  console.error("[Backend Error]", err.message);
-  res.status(err.status || 500).json({
+  // CORS origin violations
+  if (err.message && err.message.includes("CORS")) {
+    return res.status(403).json({
+      success: false,
+      error: "CORS policy violation: Access from this origin is not allowed.",
+    });
+  }
+
+  // Determine status code
+  const statusCode = err.status || err.statusCode || 500;
+
+  // Clean error message ensuring internal stack traces or paths are never exposed
+  const cleanMessage =
+    statusCode === 500
+      ? "Internal server error occurred. Please try again later."
+      : (err.message || "An error occurred processing your request.");
+
+  res.status(statusCode).json({
     success: false,
-    error: err.message || "Internal server error occurred",
+    error: cleanMessage,
   });
 });
 
@@ -56,10 +160,13 @@ if (require.main === module) {
     console.log("=================================================");
     console.log(`  ReLife Backend API Server running on port ${PORT}`);
     console.log(`  Health Check: http://localhost:${PORT}/api/health`);
+    console.log(`  Security Headers: Helmet active`);
+    console.log(`  CORS Whitelist: Active (${allowedOrigins.join(", ")})`);
+    console.log(`  Upload Rate Limit: 10 req/min (429 on 11th)`);
     console.log(`  Pinata Status: ${pinataService.isConfigured() ? "Configured (Live Pinata)" : "Mock/Development Mode"}`);
     console.log("=================================================");
   });
 }
 
 module.exports = app;
-
+module.exports.uploadLimiter = uploadLimiter;

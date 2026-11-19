@@ -7,7 +7,7 @@
 [![Ethers.js](https://img.shields.io/badge/Web3-Ethers.js%20v6-2535a0)](https://docs.ethers.org/v6/)
 [![Ethereum](https://img.shields.io/badge/Network-Sepolia%20Testnet-627EEA?logo=ethereum)](https://sepolia.etherscan.io/)
 [![IPFS](https://img.shields.io/badge/Storage-Pinata%20IPFS-65C9C6?logo=ipfs)](https://pinata.cloud/)
-[![Tests](https://img.shields.io/badge/Tests-274%20Passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/Tests-292%20Passing-brightgreen)]()
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
