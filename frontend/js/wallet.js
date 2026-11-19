@@ -351,6 +351,104 @@ const ReLifeWallet = {
   },
 
   /**
+   * Converts an on-chain Warranty struct and expiry flag into a clean, safe JavaScript object.
+   * Safely parses BigInt values to primitive numbers.
+   * Strictly prevents "[object Object]", "undefined", and "NaN".
+   * @param {Object|Array} warranty - The warranty struct from getWarranty(productId)
+   * @param {boolean} isExpired - The isExpired boolean returned by getWarranty(productId)
+   * @returns {Object} Safe JS object with formatted strings and status badges
+   */
+  formatWarranty(warranty, isExpired = false) {
+    if (!warranty) {
+      return {
+        hasWarranty: false,
+        isValid: false,
+        isExpired: false,
+        daysLeft: 0,
+        badgeHtml: '<span class="badge badge-secondary" style="background:rgba(255,255,255,0.08);">No Warranty</span>',
+        statusText: "No Warranty",
+        badgeClass: "badge-secondary",
+        coverage: "None",
+        startDateFormatted: "N/A",
+        endDateFormatted: "N/A",
+        termsUri: "",
+      };
+    }
+
+    const toNumber = (val) => {
+      if (val === undefined || val === null) return 0;
+      if (typeof val === "bigint") return Number(val);
+      if (typeof val === "number") return val;
+      const parsed = Number(val);
+      return isNaN(parsed) ? 0 : parsed;
+    };
+
+    const toStringSafe = (val) => {
+      if (val === undefined || val === null) return "";
+      if (typeof val === "string") return val;
+      return String(val);
+    };
+
+    // Support both named properties and positional indices
+    const startTs = toNumber(warranty.warrantyStart !== undefined ? warranty.warrantyStart : warranty[0]);
+    const endTs = toNumber(warranty.warrantyEnd !== undefined ? warranty.warrantyEnd : (warranty.expiryTimestamp !== undefined ? warranty.expiryTimestamp : warranty[1]));
+    const coverage = toStringSafe(warranty.warrantyType !== undefined ? warranty.warrantyType : warranty[3]) || "Standard Warranty";
+    const termsUri = toStringSafe(warranty.termsUri !== undefined ? warranty.termsUri : warranty[4]);
+    const isActive = Boolean(warranty.isActive !== undefined ? warranty.isActive : warranty[5]);
+
+    if (!isActive || endTs === 0) {
+      return {
+        hasWarranty: false,
+        isValid: false,
+        isExpired: false,
+        daysLeft: 0,
+        badgeHtml: '<span class="badge badge-secondary" style="background:rgba(255,255,255,0.08);">No Warranty</span>',
+        statusText: "No Warranty",
+        badgeClass: "badge-secondary",
+        coverage: "None",
+        startDateFormatted: "N/A",
+        endDateFormatted: "N/A",
+        termsUri: "",
+      };
+    }
+
+    const nowTs = Math.floor(Date.now() / 1000);
+    const expired = Boolean(isExpired || (nowTs >= endTs));
+    const secondsRemaining = Math.max(0, endTs - nowTs);
+    const daysLeft = Math.ceil(secondsRemaining / 86400);
+
+    const startDateFormatted = startTs > 0 ? new Date(startTs * 1000).toLocaleDateString() : "Registration Date";
+    const endDateFormatted = endTs > 0 ? new Date(endTs * 1000).toLocaleDateString() : "N/A";
+
+    let statusText = "";
+    let badgeClass = "";
+
+    if (expired) {
+      statusText = "Expired";
+      badgeClass = "badge-danger";
+    } else {
+      statusText = `Valid (${daysLeft} day${daysLeft === 1 ? "" : "s"} left)`;
+      badgeClass = "badge-success";
+    }
+
+    const badgeHtml = `<span class="badge ${badgeClass}">${statusText}</span>`;
+
+    return {
+      hasWarranty: true,
+      isValid: !expired,
+      isExpired: expired,
+      daysLeft,
+      badgeHtml,
+      statusText,
+      badgeClass,
+      coverage,
+      startDateFormatted,
+      endDateFormatted,
+      termsUri,
+    };
+  },
+
+  /**
    * Subscribes to wallet events (e.g., account changed, connected).
    */
   on(event, callback) {
@@ -366,3 +464,4 @@ const ReLifeWallet = {
 
 window.ReLifeWallet = ReLifeWallet;
 window.formatProduct = ReLifeWallet.formatProduct;
+window.formatWarranty = ReLifeWallet.formatWarranty;

@@ -7,7 +7,7 @@
 [![Ethers.js](https://img.shields.io/badge/Web3-Ethers.js%20v6-2535a0)](https://docs.ethers.org/v6/)
 [![Ethereum](https://img.shields.io/badge/Network-Sepolia%20Testnet-627EEA?logo=ethereum)](https://sepolia.etherscan.io/)
 [![IPFS](https://img.shields.io/badge/Storage-Pinata%20IPFS-65C9C6?logo=ipfs)](https://pinata.cloud/)
-[![Tests](https://img.shields.io/badge/Tests-171%20Passing-brightgreen)]()
+[![Tests](https://img.shields.io/badge/Tests-214%20Passing-brightgreen)]()
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -22,7 +22,7 @@ Physical consumer products (electronics, luxury goods, industrial machinery) suf
 * **Cryptographic Identity**: Each product receives a 1-based sequential on-chain ID anchored to its physical etched serial number and decentralized IPFS metadata (origin, materials, carbon footprint).
 * **Role-Governed Lifecycle**: Granular access control ensures that only authorized manufacturers can mint passports, only certified repair centers can record maintenance, and only licensed recyclers can decommission assets.
 * **Deterministic Status State Machine (Feature 1)**: Enforces a formal on-chain state machine (`Manufactured -> Sold -> InRepair -> Recycled`) with invalid move guards, repair transfer locks, and terminal recycling freeze.
-* **Dynamic Warranty Expiry Tracking (Feature 2)**: Stores verifiable `warrantyStart` and `warrantyEnd` timestamps set by manufacturers or authorized sellers; evaluates real-time validity on-chain via free `isWarrantyValid` view function with days-remaining countdown.
+* **Dynamic Warranty Expiry Tracking (Feature 2)**: Stores verifiable `warrantyStart` and `warrantyEnd` timestamps configured at registration or extended by authorized sellers; computes expiry on-chain (`block.timestamp + months * 30 days`), evaluates real-time validity on-chain via free `isWarrantyValid` view function with days-remaining countdown and coverage details.
 * **Resilient 2-Step Ownership Transfer (Feature 3)**: Implements `initiateTransfer` and `acceptTransfer` with `cancelTransfer` fallback, eliminating accidental loss of passports to mistyped addresses and enforcing locks during repairs or decommissioning.
 * **Authenticity Secret Commitment (Feature 4)**: Generates ephemeral 32-byte off-chain secrets printed on tamper-evident packaging QR links and stores only `keccak256(secret)` on-chain; consumers verify physical authenticity via free `verifySecret` view function without exposing the plaintext secret.
 * **Scan Counter & Counterfeit Alert (Feature 5)**: Express backend scan telemetry tracking verification frequency and distinct network origins via salted HMAC-SHA256 IP anonymization (strictly zero raw PII). Automatically flags passports when scans exceed thresholds (>5 scans or $\ge 3$ distinct networks in 10 min).
@@ -117,11 +117,11 @@ flowchart TD
 
 The ReLife core contract is deployed and verified on Ethereum Sepolia:
 
-* **Contract Address**: [`0x61B941B43ba4C39bDA4d6138DA50977EB43D3734`](https://sepolia.etherscan.io/address/0x61B941B43ba4C39bDA4d6138DA50977EB43D3734)
+* **Contract Address**: [`0x315550A78C276cEb7fa5F54EeE91A03e2fb72dcc`](https://sepolia.etherscan.io/address/0x315550A78C276cEb7fa5F54EeE91A03e2fb72dcc)
 * **Contract Administrator**: `0xd75dC45aEDDa24Bc3d3e92B03D75b828f473530E`
 * **Network**: Ethereum Sepolia Testnet
 * **Chain ID**: `11155111` (`0xaa36a7`)
-* **Live Etherscan Explorer**: [View Verified Contract on Sepolia Etherscan](https://sepolia.etherscan.io/address/0x61B941B43ba4C39bDA4d6138DA50977EB43D3734)
+* **Live Etherscan Explorer**: [View Verified Contract on Sepolia Etherscan](https://sepolia.etherscan.io/address/0x315550A78C276cEb7fa5F54EeE91A03e2fb72dcc)
 
 ---
 

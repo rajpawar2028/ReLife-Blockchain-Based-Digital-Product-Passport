@@ -49,6 +49,9 @@ router.post("/upload-metadata", async (req, res, next) => {
       recyclabilityScore,
       imageUri,
       additionalAttributes,
+      warrantyMonths,
+      warrantyCoverage,
+      warrantyUnit,
     } = req.body;
 
     // Strict input validation
@@ -64,6 +67,19 @@ router.post("/upload-metadata", async (req, res, next) => {
     }
     if (!serialNumber || typeof serialNumber !== "string" || serialNumber.trim().length === 0) {
       errors.push("Missing or invalid 'serialNumber'");
+    }
+
+    // Optional warranty validation
+    if (warrantyMonths !== undefined && warrantyMonths !== null && warrantyMonths !== "") {
+      const parsedMonths = Number(warrantyMonths);
+      if (isNaN(parsedMonths) || !Number.isInteger(parsedMonths) || parsedMonths < 0 || parsedMonths > 120) {
+        errors.push("Invalid 'warrantyMonths': must be an integer between 0 and 120");
+      }
+    }
+    if (warrantyCoverage !== undefined && warrantyCoverage !== null) {
+      if (typeof warrantyCoverage !== "string" || warrantyCoverage.length > 500) {
+        errors.push("Invalid 'warrantyCoverage': must be a string up to 500 characters");
+      }
     }
 
     if (errors.length > 0) {
@@ -90,6 +106,10 @@ router.post("/upload-metadata", async (req, res, next) => {
         recyclabilityScore: Number(recyclabilityScore) || 0,
       },
       image: imageUri || "",
+      warranty: {
+        periodMonths: Number(warrantyMonths) || 0,
+        coverage: (warrantyCoverage || (Number(warrantyMonths) > 0 ? "Standard Manufacturer Warranty" : "No Warranty")).trim(),
+      },
       attributes: additionalAttributes || [],
       createdAt: new Date().toISOString(),
     };

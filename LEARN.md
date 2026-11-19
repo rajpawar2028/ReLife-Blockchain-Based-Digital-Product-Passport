@@ -972,5 +972,82 @@ What if a customer is on an older laptop without a webcam, has camera permission
 #### Q3: Why is supporting graceful fallback to manual ID entry essential for a consumer-facing Digital Product Passport application?
 > **Model Answer**: While QR scanning offers convenience, real-world deployment environments vary widely: consumers may use desktop PCs without webcams, corporate browsers with camera permissions disabled, or older devices. Additionally, physical QR packaging stickers can suffer physical abrasion, smudging, or tearing in transit. Providing automated error detection (`NotAllowedError`, `NotFoundError`) paired with manual ID and serial number lookups ensures 100% service availability and accessibility across all user devices.
 
+---
+
+## Deep Dive: How `block.timestamp` and Time-Based Checks Work in Solidity
+
+### 1. New Concepts Explained in Plain English
+
+#### What is `block.timestamp`?
+In Solidity, `block.timestamp` is a globally available environment variable that gives the Unix timestamp (the number of seconds elapsed since midnight UTC on January 1, 1970) of the current block being mined or validated.
+- It returns an unsigned integer (`uint256`).
+- Every transaction executed within the same block sees the exact same `block.timestamp`.
+- In JavaScript, `Date.now()` returns milliseconds (e.g., `1716120000000`), whereas on Ethereum, `block.timestamp` returns **seconds** (e.g., `1716120000`).
+
+#### Solidity Built-in Time Units
+Solidity provides convenient time unit suffixes that automatically convert human durations into seconds during compilation:
+- `1 seconds == 1`
+- `1 minutes == 60 seconds == 60`
+- `1 hours == 60 minutes == 3600`
+- `1 days == 24 hours == 86400`
+- `1 weeks == 7 days == 604800`
+
+> **Note on Months and Years**: Solidity deliberately **does not** provide `1 months` or `1 years` keywords (deprecated in Solidity 0.5.0) because months have variable lengths (28, 29, 30, or 31 days) and years have leap years (365 or 366 days). For smart contracts, standard financial practice is to define a month as `30 days` (`30 * 86400 = 2,592,000 seconds`). In `ReLife.sol`:
+```solidity
+uint256 endTime = block.timestamp + (warrantyMonths * 30 days);
+```
+
+#### Why We Compute Expiration in the Contract (Not Just in the Frontend)
+If the frontend computed the expiration date and passed it to the contract, any malicious user or rogue manufacturer could craft a custom transaction sending an expiration date 100 years into the future.
+By computing:
+```solidity
+uint256 endTime = block.timestamp + (warrantyMonths * 30 days);
+```
+inside `ReLife.sol`, the smart contract guarantees that:
+1. The warranty start date is irrevocably tied to the exact block when the product was minted on-chain.
+2. The expiration date is strictly calculated based on the validated input `warrantyMonths` (enforcing `warrantyMonths <= 120`).
+3. Neither the browser, client, nor intermediary can tamper with the computed end date.
+
+#### The 15-Second Rule: Can Validators Manipulate `block.timestamp`?
+A common concern in smart contract security is **miner/validator timestamp manipulation**:
+- Under Ethereum Proof-of-Stake (PoS), validators propose blocks at fixed 12-second slots.
+- Consensus rules dictate that a block's timestamp must be:
+  1. Strictly greater than the timestamp of the previous block (`parent.timestamp < block.timestamp`).
+  2. Within a small tolerance (usually $\approx 15$ seconds) of the node's local system clock.
+- **When is `block.timestamp` safe?** For coarse-grained intervals (such as a 12-month warranty, 30-day return window, or 7-day vesting schedule), a few seconds of validator drift has zero practical effect on business logic.
+- **When is `block.timestamp` dangerous?** It must never be used as a source of randomness or for sub-minute gambling games (e.g., a lottery whose winner depends on whether the block timestamp is odd or even), because a validator can bias the timestamp to profit.
+
+#### Gas-Free Dynamic Expiry Checking
+In traditional Web2 databases, you often need a background cron job running every midnight to query the database, find expired warranties, and set `is_active = false`.
+In Ethereum:
+1. Storing data or executing cron jobs costs gas fees on every write.
+2. Instead, we use a gas-free `view` function:
+```solidity
+function isWarrantyValid(uint256 productId) public view returns (bool) {
+    if (_products[productId].isRecycled) return false;
+    Warranty memory w = _productWarranties[productId];
+    if (w.warrantyEnd == 0) return false;
+    return block.timestamp >= w.warrantyStart && block.timestamp < w.warrantyEnd;
+}
+```
+Whenever a consumer, mobile app, or frontend calls `isWarrantyValid(id)`:
+- The node evaluates `block.timestamp < warrantyEnd` dynamically in memory.
+- The check is 100% free (zero gas).
+- The result is always 100% up-to-date in real time.
+
+---
+
+### 2. Three Viva / Interview Questions You Should Be Able to Answer (Warranty & `block.timestamp`)
+
+#### Q1: Why did Solidity deprecate time units like `years` and `months`, and how does ReLife handle month calculations safely?
+> **Model Answer**: Solidity deprecated the `years` and `months` keywords because they do not represent constant time intervals. Months vary between 28 and 31 days, and years can have 365 or 366 days due to leap years. Relying on variable calendar units would introduce leap-second or calendar-drift vulnerabilities into consensus logic. In ReLife, we adopt the standard Ethereum convention of defining 1 month as exactly `30 days` (`30 * 86,400 seconds = 2,592,000 seconds`). This ensures deterministic, reproducible arithmetic across all EVM nodes.
+
+#### Q2: Can an Ethereum validator manipulate `block.timestamp` to prematurely expire or illegitimately extend a warranty?
+> **Model Answer**: No, not in any meaningful way. Under Ethereum's consensus rules, a proposed block's timestamp must be strictly greater than the previous block's timestamp and cannot be placed further in the future than the network's slot clock tolerance (typically within ~15 seconds). While a validator could theoretically adjust a block's timestamp by a few seconds, ReLife's warranties are measured in months (where 1 month is 2,592,000 seconds). A drift of a few seconds is completely negligible and cannot be exploited to forge warranty validity.
+
+#### Q3: How do we test time-dependent smart contract logic (like warranty expiration) in automated Hardhat test suites without waiting 12 months in real time?
+> **Model Answer**: In automated testing, we use Hardhat's JSON-RPC EVM control methods: `evm_increaseTime` and `evm_mine` (accessible via `@nomicfoundation/hardhat-network-helpers` using `time.increase(seconds)`). In `test/ManufacturerWarranty.test.js`, we test warranty expiration by fast-forwarding the local Hardhat EVM clock by 366 days (`366 * 86400` seconds) and mining a new block. This simulates the passage of over a year in milliseconds, allowing us to assert that `isWarrantyValid(id)` returns `true` before the time jump and `false` immediately after the expiration threshold.
+
+
 
 

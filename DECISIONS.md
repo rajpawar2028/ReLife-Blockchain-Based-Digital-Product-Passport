@@ -112,5 +112,13 @@
 - **Secure Context (HTTPS / Localhost) Detection**: Modern browsers restrict camera access to Secure Contexts. Pre-flight origin checking detects insecure LAN IPs (`http://192.168.x.x:5000`) and explicitly informs the user that phone camera testing requires an HTTPS tunnel (e.g. ngrok / cloudflared) or localhost.
 - **Universal Multi-Format QR Payload Parser (`parseQrPayload`)**: Implemented a pure, deterministic parser that handles full URLs (`?id=X&secret=Y`), relative paths, query strings, JSON payloads, raw numeric IDs, and serial numbers, extracting `productId` and optional `secret` seamlessly.
 
+## End-to-End Warranty at Registration
+- **On-Chain Computation of Expiry at Minting**: Rather than relying purely on client-side date computations, `registerProductWithWarranty` computes `warrantyEnd = block.timestamp + (warrantyMonths * 30 days)` directly in the smart contract. This provides an immutable, verifiable warranty start and end date anchored to the transaction's block timestamp.
+- **Input Validation & 120-Month Safety Bound**: Enforced a 120-month (10 years) maximum warranty period (`ReLife__WarrantyPeriodTooLong(months)`) in the contract, and mirrored this validation in `backend/routes/ipfs.js` (integer check, range 0–120) and the frontend form (`min="0" max="120"`). Period 0 represents an explicit "No warranty" state.
+- **Backward-Compatible Contract Overloads**: Retained the 4-argument and 5-argument `registerProduct` / `registerProductWithSecret` functions as pass-through overloads setting warranty months to 0. This ensures 100% backward compatibility with all existing test suites and third-party callers.
+- **Normalized Warranty Storage & Extensions**: Stored warranty periods in the internal `_productWarranties` mapping, while supporting active warranty extensions via `addWarrantyMonths` for authorized sellers or owners before product decommissioning.
+- **Unified Frontend Formatter (`ReLifeWallet.formatWarranty`)**: Created a centralized helper in `frontend/js/wallet.js` exported globally (`window.formatWarranty`). The helper defensively handles `null`, `undefined`, raw seconds, and Ethers `BigInt` timestamps, formatting remaining days (`Valid (X days left)`), expiry, or no-warranty status identically across Manufacturer, Product, and Owner pages, preventing UI drift and `[object Object]` bugs.
+
+
 
 

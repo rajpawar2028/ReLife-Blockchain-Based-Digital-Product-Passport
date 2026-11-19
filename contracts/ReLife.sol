@@ -36,6 +36,7 @@ contract ReLife is AccessControl {
     error ReLife__NoTransferPending(uint256 productId);
     error ReLife__NotPendingOwner(uint256 productId, address caller);
     error ReLife__UnauthorizedManufacturer(uint256 productId, address caller);
+    error ReLife__WarrantyPeriodTooLong(uint256 months);
 
     // -------------------------------------------------------------
     // DATA STRUCTURES
@@ -412,6 +413,94 @@ contract ReLife is AccessControl {
     }
 
     /**
+     * @notice Registers a product passport with authenticity hash and warranty in a single transaction.
+     * @dev Restricted to accounts with MANUFACTURER_ROLE.
+     *      Computes warrantyEnd on-chain as: block.timestamp + (warrantyMonths * 30 days).
+     * @param serialNumber Globally unique physical serial number.
+     * @param modelName Model name or identifier.
+     * @param brand Brand name.
+     * @param metadataURI IPFS metadata URI.
+     * @param authenticityHash keccak256 hash of the off-chain secret (or bytes32(0)).
+     * @param warrantyMonths Duration of warranty in months (max 120 months; 0 = no warranty).
+     * @param warrantyCoverage Optional coverage description/title (e.g. "Standard 1-Year Limited").
+     * @return productId The unique ID assigned to the new product.
+     */
+    function registerProductWithWarranty(
+        string calldata serialNumber,
+        string calldata modelName,
+        string calldata brand,
+        string calldata metadataURI,
+        bytes32 authenticityHash,
+        uint256 warrantyMonths,
+        string calldata warrantyCoverage
+    ) public onlyRole(MANUFACTURER_ROLE) returns (uint256) {
+        if (warrantyMonths > 120) {
+            revert ReLife__WarrantyPeriodTooLong(warrantyMonths);
+        }
+
+        uint256 newProductId = _registerProduct(serialNumber, modelName, brand, metadataURI);
+
+        if (authenticityHash != bytes32(0)) {
+            _authenticityHashes[newProductId] = authenticityHash;
+        }
+
+        if (warrantyMonths > 0) {
+            uint256 endTime = block.timestamp + (warrantyMonths * 30 days);
+
+            _productWarranties[newProductId] = Warranty({
+                warrantyStart: block.timestamp,
+                warrantyEnd: endTime,
+                expiryTimestamp: endTime,
+                warrantyType: bytes(warrantyCoverage).length > 0
+                    ? warrantyCoverage
+                    : "Standard Manufacturer Warranty",
+                termsUri: metadataURI,
+                isActive: true
+            });
+
+            emit WarrantyAdded(
+                newProductId,
+                endTime,
+                _productWarranties[newProductId].warrantyType,
+                metadataURI,
+                msg.sender
+            );
+        }
+
+        return newProductId;
+    }
+
+    /**
+     * @notice Registers a product passport with warranty duration in months.
+     * @dev Overload of registerProduct supporting initial warranty duration.
+     * @param serialNumber Globally unique physical serial number.
+     * @param modelName Model name or identifier.
+     * @param brand Brand name.
+     * @param metadataURI IPFS metadata URI.
+     * @param warrantyMonths Duration of warranty in months (max 120 months; 0 = no warranty).
+     * @param warrantyCoverage Coverage description/terms.
+     * @return productId The unique ID assigned to the new product.
+     */
+    function registerProduct(
+        string calldata serialNumber,
+        string calldata modelName,
+        string calldata brand,
+        string calldata metadataURI,
+        uint256 warrantyMonths,
+        string calldata warrantyCoverage
+    ) external onlyRole(MANUFACTURER_ROLE) returns (uint256) {
+        return registerProductWithWarranty(
+            serialNumber,
+            modelName,
+            brand,
+            metadataURI,
+            bytes32(0),
+            warrantyMonths,
+            warrantyCoverage
+        );
+    }
+
+    /**
      * @notice Sets or updates the authenticity hash for a product passport.
      * @dev Restricted to the original manufacturer or contract admin before recycling.
      *      Stores only the hash; the raw secret is never sent to the contract.
@@ -717,6 +806,34 @@ contract ReLife is AccessControl {
         string calldata termsUri
     ) external {
         _setWarranty(productId, block.timestamp, expiryTimestamp, warrantyType, termsUri);
+    }
+
+    /**
+     * @notice Attaches or extends product warranty by specified duration in months.
+     * @dev Restricted to the original manufacturer, authorized seller (current owner), or contract admin.
+     * @param productId The ID of the product.
+     * @param warrantyMonths Duration in months to attach or extend (1 to 120 months).
+     * @param warrantyType Title/tier (e.g. "Standard 1-Year", "Extended Care").
+     * @param termsUri IPFS URI containing policy documents and terms.
+     */
+    function addWarrantyMonths(
+        uint256 productId,
+        uint256 warrantyMonths,
+        string calldata warrantyType,
+        string calldata termsUri
+    ) external {
+        if (warrantyMonths == 0 || warrantyMonths > 120) {
+            revert ReLife__WarrantyPeriodTooLong(warrantyMonths);
+        }
+        uint256 start = block.timestamp;
+        if (_productWarranties[productId].isActive && _productWarranties[productId].warrantyEnd > block.timestamp) {
+            start = _productWarranties[productId].warrantyStart;
+            uint256 newEnd = _productWarranties[productId].warrantyEnd + (warrantyMonths * 30 days);
+            _setWarranty(productId, start, newEnd, warrantyType, termsUri);
+        } else {
+            uint256 newEnd = block.timestamp + (warrantyMonths * 30 days);
+            _setWarranty(productId, start, newEnd, warrantyType, termsUri);
+        }
     }
 
     // -------------------------------------------------------------

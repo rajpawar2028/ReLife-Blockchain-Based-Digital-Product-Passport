@@ -126,6 +126,25 @@
             <input type="number" min="0" max="100" id="prodRecyclability" placeholder="e.g. 92">
           </div>
 
+          <!-- Warranty Configuration Fields -->
+          <div class="form-group">
+            <label for="warrantyPeriod">Warranty Period</label>
+            <div style="display: flex; gap: 0.5rem;">
+              <input type="number" id="warrantyPeriod" min="0" max="120" value="12" placeholder="12" style="flex: 1;">
+              <select id="warrantyUnit" style="width: 110px;">
+                <option value="months" selected>Months</option>
+                <option value="years">Years</option>
+              </select>
+            </div>
+            <span class="input-hint">Default 12 months. Set to 0 for no warranty (cap: 120 months).</span>
+          </div>
+
+          <div class="form-group">
+            <label for="warrantyCoverage">Warranty Coverage / Terms (Optional)</label>
+            <input type="text" id="warrantyCoverage" placeholder="e.g. Full hardware & battery coverage">
+            <span class="input-hint">Coverage details stored on-chain & in IPFS passport metadata.</span>
+          </div>
+
           <div class="form-group full-width">
             <label for="description">Product Description <span class="required">*</span></label>
             <textarea id="description" rows="3" placeholder="Detailed product specifications, circular lifecycle instructions, and repairability summary" required></textarea>
@@ -165,13 +184,14 @@
               <th>ID</th>
               <th>Serial Number</th>
               <th>Product</th>
+              <th>Warranty</th>
               <th>Registered Date</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody id="productsTableBody">
             <tr id="noProductsRow">
-              <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+              <td colspan="6" style="text-align: center; color: var(--text-muted); padding: 2rem;">
                 No products registered yet under this manufacturer account.
               </td>
             </tr>

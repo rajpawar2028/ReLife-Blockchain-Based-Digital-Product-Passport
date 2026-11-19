@@ -117,6 +117,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     const recyclabilityScore = document.getElementById("prodRecyclability").value;
     const fileInput = document.getElementById("prodFile");
 
+    // Warranty Fields
+    const warrantyPeriodInput = document.getElementById("warrantyPeriod");
+    const warrantyUnitInput = document.getElementById("warrantyUnit");
+    const warrantyCoverageInput = document.getElementById("warrantyCoverage");
+
+    let periodVal = Number(warrantyPeriodInput ? warrantyPeriodInput.value : 12);
+    if (isNaN(periodVal) || periodVal < 0) periodVal = 0;
+    const unitVal = warrantyUnitInput ? warrantyUnitInput.value : "months";
+    let warrantyMonths = unitVal === "years" ? periodVal * 12 : periodVal;
+    if (warrantyMonths > 120) warrantyMonths = 120;
+    const warrantyCoverage = warrantyCoverageInput ? warrantyCoverageInput.value.trim() : "";
+
     // UI Loading state
     submitBtn.disabled = true;
     submitSpinner.style.display = "inline-block";
@@ -159,6 +171,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         originCountry: originCountry || "Not Specified",
         recyclabilityScore: Number(recyclabilityScore) || 0,
         imageUri,
+        warrantyMonths,
+        warrantyCoverage,
+        warrantyUnit: unitVal,
       };
 
       const metaRes = await fetch(`${API_BASE}/api/ipfs/upload-metadata`, {
@@ -196,9 +211,22 @@ document.addEventListener("DOMContentLoaded", async () => {
       showStatus("info", "Step 4/4: Please confirm the transaction in MetaMask...");
 
       const contract = ReLifeWallet.contract;
-      const tx = contract.registerProductWithSecret && authenticityHash !== ethers.ZeroHash
-        ? await contract.registerProductWithSecret(serialNumber, model, brand, metadataURI, authenticityHash)
-        : await contract.registerProduct(serialNumber, model, brand, metadataURI);
+      let tx;
+      if (contract.registerProductWithWarranty) {
+        tx = await contract.registerProductWithWarranty(
+          serialNumber,
+          model,
+          brand,
+          metadataURI,
+          authenticityHash,
+          BigInt(warrantyMonths),
+          warrantyCoverage
+        );
+      } else if (contract.registerProductWithSecret && authenticityHash !== ethers.ZeroHash) {
+        tx = await contract.registerProductWithSecret(serialNumber, model, brand, metadataURI, authenticityHash);
+      } else {
+        tx = await contract.registerProduct(serialNumber, model, brand, metadataURI);
+      }
 
       showStatus("info", `Transaction submitted! Mining block on chain: ${tx.hash}`);
 
@@ -281,7 +309,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         events.map(async (event) => {
           try {
             const raw = await contract.getProduct(event.args.productId);
-            return raw;
+            let warranty = null;
+            let isExpired = false;
+            try {
+              const res = await contract.getWarranty(event.args.productId);
+              warranty = res[0];
+              isExpired = res[1];
+            } catch (_) {}
+            return { raw, warranty, isExpired };
           } catch (err) {
             console.warn(`Could not fetch details for product #${event.args.productId}:`, err);
             return null;
@@ -289,9 +324,10 @@ document.addEventListener("DOMContentLoaded", async () => {
         })
       );
 
-      rawProducts.reverse().forEach((raw) => {
-        if (!raw) return;
-        const prod = ReLifeWallet.formatProduct(raw);
+      rawProducts.reverse().forEach((item) => {
+        if (!item || !item.raw) return;
+        const prod = ReLifeWallet.formatProduct(item.raw);
+        const wInfo = ReLifeWallet.formatWarranty(item.warranty, item.isExpired);
 
         const tr = document.createElement("tr");
 
@@ -309,6 +345,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         const tdModel = document.createElement("td");
         tdModel.textContent = prod.displayName;
 
+        const tdWarranty = document.createElement("td");
+        const spanW = document.createElement("span");
+        spanW.className = `badge ${wInfo.badgeClass}`;
+        spanW.textContent = wInfo.statusText;
+        tdWarranty.appendChild(spanW);
+
         const tdDate = document.createElement("td");
         tdDate.textContent = prod.formattedDate;
 
@@ -325,6 +367,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         tr.appendChild(tdId);
         tr.appendChild(tdSerial);
         tr.appendChild(tdModel);
+        tr.appendChild(tdWarranty);
         tr.appendChild(tdDate);
         tr.appendChild(tdAction);
 

@@ -1,9 +1,9 @@
 {
   "network": "sepolia",
   "chainId": 11155111,
-  "address": "0x61B941B43ba4C39bDA4d6138DA50977EB43D3734",
+  "address": "0x315550A78C276cEb7fa5F54EeE91A03e2fb72dcc",
   "deployer": "0xd75dC45aEDDa24Bc3d3e92B03D75b828f473530E",
-  "deployedAt": "2026-11-19T12:13:04.540Z",
+  "deployedAt": "2026-11-19T13:41:27.807Z",
   "abi": [
     {
       "inputs": [],
@@ -223,6 +223,17 @@
         }
       ],
       "name": "ReLife__UnauthorizedWarrantyIssuer",
+      "type": "error"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "months",
+          "type": "uint256"
+        }
+      ],
+      "name": "ReLife__WarrantyPeriodTooLong",
       "type": "error"
     },
     {
@@ -880,6 +891,34 @@
           "internalType": "uint256",
           "name": "productId",
           "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "warrantyMonths",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "warrantyType",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "termsUri",
+          "type": "string"
+        }
+      ],
+      "name": "addWarrantyMonths",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "productId",
+          "type": "uint256"
         }
       ],
       "name": "cancelTransfer",
@@ -1509,12 +1548,105 @@
           "type": "string"
         },
         {
+          "internalType": "uint256",
+          "name": "warrantyMonths",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "warrantyCoverage",
+          "type": "string"
+        }
+      ],
+      "name": "registerProduct",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "serialNumber",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "modelName",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "brand",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "metadataURI",
+          "type": "string"
+        },
+        {
           "internalType": "bytes32",
           "name": "authenticityHash",
           "type": "bytes32"
         }
       ],
       "name": "registerProductWithSecret",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "serialNumber",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "modelName",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "brand",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "metadataURI",
+          "type": "string"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "authenticityHash",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "warrantyMonths",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "warrantyCoverage",
+          "type": "string"
+        }
+      ],
+      "name": "registerProductWithWarranty",
       "outputs": [
         {
           "internalType": "uint256",

@@ -27,6 +27,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   const viewProdDate = document.getElementById("viewProdDate");
   const viewProdIpfs = document.getElementById("viewProdIpfs");
   const viewProdWarranty = document.getElementById("viewProdWarranty");
+  const viewProdWarrantyDetails = document.getElementById("viewProdWarrantyDetails");
+  const viewProdWarrantyCoverage = document.getElementById("viewProdWarrantyCoverage");
+  const viewProdWarrantyStart = document.getElementById("viewProdWarrantyStart");
+  const viewProdWarrantyEnd = document.getElementById("viewProdWarrantyEnd");
   const viewProdScanCount = document.getElementById("viewProdScanCount");
   const counterfeitWarningBanner = document.getElementById("counterfeitWarningBanner");
   const counterfeitWarningDetails = document.getElementById("counterfeitWarningDetails");
@@ -856,27 +860,37 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   /**
-   * Loads and displays warranty status from contract
+   * Loads and displays warranty status, dates, and coverage from contract using formatWarranty
    */
   async function loadWarrantyStatus(contract, productId) {
     if (!viewProdWarranty) return;
     try {
-      const [warranty, isExpired] = await contract.getWarranty(productId);
-      const endTs = Number(warranty?.warrantyEnd || warranty?.expiryTimestamp || 0n);
-      if (warranty && endTs > 0) {
-        const nowTs = Math.floor(Date.now() / 1000);
-        const daysLeft = Math.max(0, Math.ceil((endTs - nowTs) / 86400));
-        if (isExpired || nowTs >= endTs) {
-          viewProdWarranty.innerHTML = `<span class="badge badge-danger">Expired</span>`;
+      const [rawWarranty, isExpired] = await contract.getWarranty(productId);
+      const wInfo = ReLifeWallet.formatWarranty(rawWarranty, isExpired);
+
+      // Render badge safely
+      viewProdWarranty.innerHTML = wInfo.badgeHtml;
+
+      if (viewProdWarrantyDetails) {
+        if (wInfo.hasWarranty) {
+          viewProdWarrantyDetails.style.display = "block";
+          if (viewProdWarrantyCoverage) {
+            viewProdWarrantyCoverage.textContent = wInfo.coverage;
+          }
+          if (viewProdWarrantyStart) {
+            viewProdWarrantyStart.textContent = wInfo.startDateFormatted;
+          }
+          if (viewProdWarrantyEnd) {
+            viewProdWarrantyEnd.textContent = wInfo.endDateFormatted;
+          }
         } else {
-          viewProdWarranty.innerHTML = `<span class="badge badge-success">Valid (${daysLeft} day${daysLeft === 1 ? '' : 's'} left)</span>`;
+          viewProdWarrantyDetails.style.display = "none";
         }
-      } else {
-        viewProdWarranty.innerHTML = `<span class="badge badge-secondary" style="background:rgba(255,255,255,0.08);">No Warranty</span>`;
       }
     } catch (err) {
       console.warn("Could not query warranty status:", err.message);
       viewProdWarranty.innerHTML = `<span class="badge badge-secondary" style="background:rgba(255,255,255,0.08);">No Warranty</span>`;
+      if (viewProdWarrantyDetails) viewProdWarrantyDetails.style.display = "none";
     }
   }
 

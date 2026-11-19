@@ -310,9 +310,15 @@
           <div class="detail-value" id="viewProdDate">&mdash;</div>
         </div>
 
-        <div class="detail-item">
-          <div class="detail-label">Warranty Status</div>
-          <div class="detail-value" id="viewProdWarranty"><span class="badge badge-secondary" style="background:rgba(255,255,255,0.08);">No Warranty</span></div>
+        <div class="detail-item" style="grid-column: span 2;">
+          <div class="detail-label">Warranty & Coverage Details</div>
+          <div class="detail-value" id="viewProdWarranty">
+            <span class="badge badge-secondary" style="background:rgba(255,255,255,0.08);">No Warranty</span>
+          </div>
+          <div id="viewProdWarrantyDetails" style="font-size: 0.88rem; color: var(--text-muted); margin-top: 0.35rem; display: none;">
+            <div><strong>Coverage:</strong> <span id="viewProdWarrantyCoverage" style="color: #cbd5e1;">&mdash;</span></div>
+            <div style="margin-top: 0.2rem;"><strong>Active Period:</strong> <span id="viewProdWarrantyStart" style="color: #cbd5e1;">&mdash;</span> &rarr; <span id="viewProdWarrantyEnd" style="color: #cbd5e1;">&mdash;</span></div>
+          </div>
         </div>
 
         <div class="detail-item">

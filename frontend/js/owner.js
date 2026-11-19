@@ -145,18 +145,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         const card = document.createElement("div");
         card.className = "owner-card";
 
-        // Warranty badge rendering
-        let warrantyBadge = `<span class="badge badge-secondary" style="background:rgba(255,255,255,0.08);">No Warranty</span>`;
-        const endTs = Number(warranty?.warrantyEnd || warranty?.expiryTimestamp || 0n);
-        if (warranty && endTs > 0) {
-          const nowTs = Math.floor(Date.now() / 1000);
-          const daysLeft = Math.max(0, Math.ceil((endTs - nowTs) / 86400));
-          if (isExpired || nowTs >= endTs) {
-            warrantyBadge = `<span class="badge badge-danger">Expired</span>`;
-          } else {
-            warrantyBadge = `<span class="badge badge-success">Valid (${daysLeft} day${daysLeft === 1 ? '' : 's'} left)</span>`;
-          }
-        }
+        // Warranty badge rendering using centralized helper
+        const wInfo = ReLifeWallet.formatWarranty(warranty, isExpired);
+        const warrantyBadge = wInfo.badgeHtml;
 
         const pId = prod.idStr;
         const hasPending = (pendingOwner && pendingOwner !== ethers.ZeroAddress);
