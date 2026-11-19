@@ -221,6 +221,13 @@ contract ReLife is AccessControl {
         uint256 timestamp
     );
 
+    event AuthenticityHashSet(
+        uint256 indexed productId,
+        bytes32 authenticityHash,
+        address indexed actor,
+        uint256 timestamp
+    );
+
     // -------------------------------------------------------------
     // CONSTRUCTOR
     // -------------------------------------------------------------
@@ -408,6 +415,7 @@ contract ReLife is AccessControl {
         uint256 newProductId = _registerProduct(serialNumber, modelName, brand, metadataURI);
         if (authenticityHash != bytes32(0)) {
             _authenticityHashes[newProductId] = authenticityHash;
+            emit AuthenticityHashSet(newProductId, authenticityHash, msg.sender, block.timestamp);
         }
         return newProductId;
     }
@@ -442,6 +450,7 @@ contract ReLife is AccessControl {
 
         if (authenticityHash != bytes32(0)) {
             _authenticityHashes[newProductId] = authenticityHash;
+            emit AuthenticityHashSet(newProductId, authenticityHash, msg.sender, block.timestamp);
         }
 
         if (warrantyMonths > 0) {
@@ -523,6 +532,7 @@ contract ReLife is AccessControl {
             revert ReLife__UnauthorizedManufacturer(productId, msg.sender);
         }
         _authenticityHashes[productId] = authenticityHash;
+        emit AuthenticityHashSet(productId, authenticityHash, msg.sender, block.timestamp);
     }
 
     // -------------------------------------------------------------

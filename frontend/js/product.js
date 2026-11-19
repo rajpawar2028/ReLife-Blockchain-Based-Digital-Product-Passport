@@ -554,12 +554,24 @@ document.addEventListener("DOMContentLoaded", async () => {
     const STATUS_NAMES = ["Manufactured", "Sold", "InRepair", "Recycled"];
     const timelineEvents = [];
 
+    // Helper to query filter in batches starting from deploymentBlock
+    const queryEvents = async (filter) => {
+      if (!contract || !filter) return [];
+      if (typeof ReLifeWallet?.queryFilterBatched === "function") {
+        return await ReLifeWallet.queryFilterBatched(contract, filter);
+      }
+      if (typeof contract.queryFilter === "function") {
+        return await contract.queryFilter(filter);
+      }
+      return [];
+    };
+
     // 1. Query on-chain events via filters if queryFilter is supported
-    if (contract && typeof contract.queryFilter === "function") {
+    if (contract && (typeof contract.queryFilter === "function" || typeof ReLifeWallet?.queryFilterBatched === "function")) {
       try {
         // ProductRegistered
         if (contract.filters?.ProductRegistered) {
-          const events = await contract.queryFilter(contract.filters.ProductRegistered(productId));
+          const events = await queryEvents(contract.filters.ProductRegistered(productId));
           events.forEach((ev) => {
             timelineEvents.push({
               blockNumber: Number(ev.blockNumber || 0),
@@ -579,9 +591,30 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
 
       try {
+        // AuthenticityHashSet
+        if (contract.filters?.AuthenticityHashSet) {
+          const events = await queryEvents(contract.filters.AuthenticityHashSet(productId));
+          events.forEach((ev) => {
+            const hashShort = ev.args?.authenticityHash ? `${ev.args.authenticityHash.slice(0, 10)}...` : "";
+            timelineEvents.push({
+              blockNumber: Number(ev.blockNumber || 0),
+              logIndex: Number(ev.index !== undefined ? ev.index : (ev.transactionIndex || 0)),
+              timestamp: Number(ev.args?.timestamp || 0),
+              icon: "🔐",
+              title: "Authenticity Commitment Set",
+              actor: ev.args?.actor || "",
+              description: `Cryptographic keccak256 commitment registered on-chain (${hashShort}).`,
+            });
+          });
+        }
+      } catch (e) {
+        console.warn("AuthenticityHashSet query:", e.message);
+      }
+
+      try {
         // StatusChanged
         if (contract.filters?.StatusChanged) {
-          const events = await contract.queryFilter(contract.filters.StatusChanged(productId));
+          const events = await queryEvents(contract.filters.StatusChanged(productId));
           events.forEach((ev) => {
             const oldStatus = STATUS_NAMES[Number(ev.args?.oldStatus)] || "Unknown";
             const newStatus = STATUS_NAMES[Number(ev.args?.newStatus)] || "Unknown";
@@ -603,7 +636,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       try {
         // WarrantyAdded
         if (contract.filters?.WarrantyAdded) {
-          const events = await contract.queryFilter(contract.filters.WarrantyAdded(productId));
+          const events = await queryEvents(contract.filters.WarrantyAdded(productId));
           events.forEach((ev) => {
             const expiryStr = ev.args?.expiryTimestamp
               ? new Date(Number(ev.args.expiryTimestamp) * 1000).toLocaleDateString()
@@ -628,7 +661,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       try {
         // TransferInitiated
         if (contract.filters?.TransferInitiated) {
-          const events = await contract.queryFilter(contract.filters.TransferInitiated(productId));
+          const events = await queryEvents(contract.filters.TransferInitiated(productId));
           events.forEach((ev) => {
             const toShort = ev.args?.to ? `${ev.args.to.slice(0, 6)}...${ev.args.to.slice(-4)}` : "";
             timelineEvents.push({
@@ -649,7 +682,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       try {
         // TransferAccepted
         if (contract.filters?.TransferAccepted) {
-          const events = await contract.queryFilter(contract.filters.TransferAccepted(productId));
+          const events = await queryEvents(contract.filters.TransferAccepted(productId));
           events.forEach((ev) => {
             const prevShort = ev.args?.previousOwner ? `${ev.args.previousOwner.slice(0, 6)}...${ev.args.previousOwner.slice(-4)}` : "";
             const newShort = ev.args?.newOwner ? `${ev.args.newOwner.slice(0, 6)}...${ev.args.newOwner.slice(-4)}` : "";
@@ -671,7 +704,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       try {
         // TransferCancelled
         if (contract.filters?.TransferCancelled) {
-          const events = await contract.queryFilter(contract.filters.TransferCancelled(productId));
+          const events = await queryEvents(contract.filters.TransferCancelled(productId));
           events.forEach((ev) => {
             const pendingShort = ev.args?.pendingOwner ? `${ev.args.pendingOwner.slice(0, 6)}...${ev.args.pendingOwner.slice(-4)}` : "";
             timelineEvents.push({
@@ -692,7 +725,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       try {
         // RepairRecordAdded
         if (contract.filters?.RepairRecordAdded) {
-          const events = await contract.queryFilter(contract.filters.RepairRecordAdded(productId));
+          const events = await queryEvents(contract.filters.RepairRecordAdded(productId));
           events.forEach((ev) => {
             timelineEvents.push({
               blockNumber: Number(ev.blockNumber || 0),
@@ -714,7 +747,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       try {
         // ProductRecycled
         if (contract.filters?.ProductRecycled) {
-          const events = await contract.queryFilter(contract.filters.ProductRecycled(productId));
+          const events = await queryEvents(contract.filters.ProductRecycled(productId));
           events.forEach((ev) => {
             timelineEvents.push({
               blockNumber: Number(ev.blockNumber || 0),
@@ -734,27 +767,35 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     }
 
-    // 2. Query getProductHistory as reliable backup for repair records
+    // 2. Query getProductHistory as reliable backup only if no events could be fetched
     try {
-      const repairs = await contract.getProductHistory(productId);
-      const hasRepairsInEvents = timelineEvents.some((e) => e.icon === "🔧");
-      if (repairs && repairs.length > 0 && !hasRepairsInEvents) {
-        repairs.forEach((record) => {
-          timelineEvents.push({
-            blockNumber: 0,
-            logIndex: 0,
-            timestamp: Number(record.timestamp || 0),
-            icon: "🔧",
-            title: `Service Record: ${record.repairType || "Maintenance"} (#${record.id?.toString() || ""})`,
-            actor: record.repairCenter || "",
-            description: record.description || "Diagnostics report filed.",
-            linkUri: record.serviceUri || "",
-            linkLabel: "View Diagnostic Report (IPFS)",
+      if (timelineEvents.length === 0 && typeof contract.getProductHistory === "function") {
+        const repairs = await contract.getProductHistory(productId);
+        if (repairs && repairs.length > 0) {
+          repairs.forEach((record) => {
+            timelineEvents.push({
+              blockNumber: 0,
+              logIndex: 0,
+              timestamp: Number(record.timestamp || 0),
+              icon: "🔧",
+              title: `Service Record: ${record.repairType || "Maintenance"} (#${record.id?.toString() || ""})`,
+              actor: record.repairCenter || "",
+              description: record.description || "Diagnostics report filed.",
+              linkUri: record.serviceUri || "",
+              linkLabel: "View Diagnostic Report (IPFS)",
+            });
           });
-        });
+        }
       }
     } catch (e) {
       console.warn("getProductHistory lookup:", e.message);
+    }
+
+    // Resolve any missing timestamps from block data
+    for (const ev of timelineEvents) {
+      if ((!ev.timestamp || ev.timestamp === 0) && ev.blockNumber > 0 && typeof ReLifeWallet?.getBlockTimestamp === "function") {
+        ev.timestamp = await ReLifeWallet.getBlockTimestamp(ev.blockNumber, contract.runner?.provider);
+      }
     }
 
     if (timelineEvents.length === 0) {

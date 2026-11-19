@@ -4,6 +4,7 @@
   "address": "0x315550A78C276cEb7fa5F54EeE91A03e2fb72dcc",
   "deployer": "0xd75dC45aEDDa24Bc3d3e92B03D75b828f473530E",
   "deployedAt": "2026-11-19T13:41:27.807Z",
+  "deploymentBlock": 12168759,
   "abi": [
     {
       "inputs": [],

@@ -1048,6 +1048,70 @@ Whenever a consumer, mobile app, or frontend calls `isWarrantyValid(id)`:
 #### Q3: How do we test time-dependent smart contract logic (like warranty expiration) in automated Hardhat test suites without waiting 12 months in real time?
 > **Model Answer**: In automated testing, we use Hardhat's JSON-RPC EVM control methods: `evm_increaseTime` and `evm_mine` (accessible via `@nomicfoundation/hardhat-network-helpers` using `time.increase(seconds)`). In `test/ManufacturerWarranty.test.js`, we test warranty expiration by fast-forwarding the local Hardhat EVM clock by 366 days (`366 * 86400` seconds) and mining a new block. This simulates the passage of over a year in milliseconds, allowing us to assert that `isWarrantyValid(id)` returns `true` before the time jump and `false` immediately after the expiration threshold.
 
+---
+
+## Area 1: Complete State-Change Events & Batched Event-Driven History
+
+### 1. New Concepts Explained in Plain English
+
+#### EVM Storage vs. Event Logs (The Gas Difference)
+In Ethereum, smart contract storage is the most expensive computational resource:
+- **State Storage (`SSTORE`)**: Writing a new 32-byte slot to the global Ethereum state tree costs **20,000 gas**. Every validator in the world must keep this data in memory/disk indefinitely for fast transaction execution.
+- **Event Logs (`LOG`)**: Emitting an event (`emit EventName(...)`) costs only **375 gas base + 375 gas per indexed topic + 8 gas per byte** of unindexed data.
+- **Key Insight**: Smart contracts cannot read past event logs (the EVM execution engine has no opcode to read past events). However, external Web3 frontends, indexers, and analytics bots can read and search them freely through RPC nodes using `eth_getLogs`. Therefore, events are the industry standard for audit histories, activity feeds, and notifications.
+
+#### How `indexed` Topics and Bloom Filters Work
+When an event parameter is declared with `indexed`:
+```solidity
+event ProductRegistered(
+    uint256 indexed productId,
+    string indexed serialNumber,
+    address indexed manufacturer,
+    ...
+);
+```
+1. The parameter is placed in the log's **topics** array:
+   - `topics[0]`: The keccak256 hash of the event signature (e.g. `keccak256("ProductRegistered(uint256,string,address,string,string,string,uint256)")`).
+   - `topics[1]`: The first indexed argument (`productId`).
+   - `topics[2]`: The second indexed argument (`keccak256(serialNumber)`).
+   - `topics[3]`: The third indexed argument (`manufacturer`).
+2. Ethereum block headers store a 2048-bit **Bloom filter** of all event topics emitted in that block.
+3. When your frontend asks for logs where `productId == 1`, the RPC node checks the Bloom filter of each block header in $O(1)$ time without scanning every single transaction.
+
+#### Why We Must Batch `eth_getLogs` Queries & Use `deploymentBlock`
+When developers write:
+```javascript
+// DANGEROUS ON PUBLIC NETWORKS
+const events = await contract.queryFilter(contract.filters.ProductRegistered(productId));
+```
+Ethers.js translates this into an RPC request starting at block `0` and ending at `"latest"`.
+- On Sepolia, there are over 12 million blocks!
+- RPC providers like Alchemy or Infura immediately reject such requests with:
+  `Error: -32005 query returned more than 10,000 results or block range exceeds 10,000 blocks.`
+- **The Solution**:
+  1. We store `deploymentBlock` in `contract-data.json`.
+  2. We query only starting from `deploymentBlock` instead of block 0.
+  3. In `ReLifeWallet.queryFilterBatched`, we slice the block range into manageable chunks (e.g. 5,000 blocks per request).
+
+#### Why Frontends Should Never Loop Over On-Chain History Arrays
+In earlier architecture, one might store an unbounded array of repairs or transfers in contract storage and call a view function returning `RepairRecord[] memory`.
+- **The Problem**: If a product undergoes 100 repairs or 500 transfers over 10 years, loading that array allocates massive memory on the RPC node, potentially hitting the RPC gas/payload limit and crashing the page.
+- **The Modern Pattern**: The UI queries only the event logs for that `productId`, sorts them chronologically (`blockNumber`, then `logIndex`), and builds the timeline entirely off-chain.
+
+---
+
+### 2. Three Viva / Interview Questions You Should Be Able to Answer (Area 1)
+
+#### Q1: Why are EVM event logs significantly cheaper than storing historical lifecycle records in Solidity storage arrays?
+> **Model Answer**: State storage in Solidity (`SSTORE`) mutates the persistent global Merkle Patricia Trie of the blockchain, costing 20,000 gas per 32-byte slot, because all validator nodes must maintain this state in active memory to validate subsequent transactions. In contrast, emitting an event using EVM `LOG` opcodes writes log entries only to the transaction receipt rather than active contract storage. Receipts cost only ~375 gas plus 8 gas per byte. While smart contracts cannot read past event logs on-chain, external applications can index and query these event logs freely via RPC nodes, making events the optimal architectural choice for scalable audit trails.
+
+#### Q2: Why does an unbound `contract.queryFilter(...)` call fail on public Ethereum networks like Sepolia or Mainnet, and how does ReLife prevent this?
+> **Model Answer**: When `fromBlock` and `toBlock` are omitted in `contract.queryFilter`, Ethers defaults to querying from block 0 (the genesis block) to "latest". Because public testnets and mainnet have millions of blocks, full-range `eth_getLogs` calls overwhelm RPC nodes. Nodes enforce protective limits (e.g. maximum 10,000 blocks per query) and return RPC error `-32005`. ReLife solves this in two ways: (1) we store `deploymentBlock` in `contract-data.json` and start queries strictly from the contract deployment block, skipping millions of irrelevant historical blocks; and (2) we implement `ReLifeWallet.queryFilterBatched` to query event logs in deterministic 5,000-block slices.
+
+#### Q3: How does the EVM handle dynamic string types when they are marked as `indexed` in an event (such as `string indexed serialNumber`)?
+> **Model Answer**: Event topics in the EVM are fixed 32-byte slots (`bytes32`). For value types (like `uint256` or `address`), the parameter fits directly into the 32-byte topic. However, dynamic types such as `string`, `bytes`, or arrays can have arbitrary lengths. If a dynamic type is marked as `indexed`, Solidity automatically hashes the value using `keccak256` before storing it in the topic (`topics[k] = keccak256(bytes(value))`). As a result, indexers can filter for the exact string by matching its 32-byte hash, but the raw unhashed plaintext string is not retrievable directly from the topic itself.
+
+
 
 
 

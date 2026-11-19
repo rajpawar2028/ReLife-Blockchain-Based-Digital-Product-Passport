@@ -46,6 +46,12 @@ async function main() {
   }
   console.log(`>>> Bytecode confirmed on-chain (${(deployedCode.length - 2) / 2} bytes deployed).`);
 
+  // Get deployment block number
+  const deploymentTx = relife.deploymentTransaction();
+  const deploymentReceipt = deploymentTx ? await deploymentTx.wait() : null;
+  const deploymentBlock = deploymentReceipt ? Number(deploymentReceipt.blockNumber) : Number(await hre.ethers.provider.getBlockNumber());
+  console.log(`>>> Deployed in block number: ${deploymentBlock}`);
+
   // Fetch full contract artifact for ABI
   const artifact = await hre.artifacts.readArtifact("ReLife");
 
@@ -55,6 +61,7 @@ async function main() {
     address: contractAddress,
     deployer: deployer.address,
     deployedAt: new Date().toISOString(),
+    deploymentBlock: deploymentBlock,
     abi: artifact.abi,
   };
 

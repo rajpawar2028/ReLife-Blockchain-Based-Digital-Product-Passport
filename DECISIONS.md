@@ -119,6 +119,14 @@
 - **Normalized Warranty Storage & Extensions**: Stored warranty periods in the internal `_productWarranties` mapping, while supporting active warranty extensions via `addWarrantyMonths` for authorized sellers or owners before product decommissioning.
 - **Unified Frontend Formatter (`ReLifeWallet.formatWarranty`)**: Created a centralized helper in `frontend/js/wallet.js` exported globally (`window.formatWarranty`). The helper defensively handles `null`, `undefined`, raw seconds, and Ethers `BigInt` timestamps, formatting remaining days (`Valid (X days left)`), expiry, or no-warranty status identically across Manufacturer, Product, and Owner pages, preventing UI drift and `[object Object]` bugs.
 
+## Area 1: Complete State Change Events & Batched Event-Driven History
+- **`AuthenticityHashSet` Event Integration**: Added `event AuthenticityHashSet(uint256 indexed productId, bytes32 authenticityHash, address indexed actor, uint256 timestamp)` to ensure that 100% of on-chain state mutations emit an event log. The 32-byte `keccak256` commitment is emitted without exposing the underlying plaintext secret, maintaining zero-knowledge anti-counterfeiting security.
+- **Batched Event Querying (`queryFilterBatched`) over Unbounded `queryFilter`**: In public networks (Sepolia, Mainnet), calling `queryFilter` with no block bounds defaults to `[0, latest]`, triggering RPC error `-32005 (query returned more than 10000 results / block range exceeds limit)`. Implemented chunked block-range slicing (e.g. 5,000 blocks) starting from `deploymentBlock`.
+- **`deploymentBlock` Offset Inclusion**: Added `deploymentBlock` into deployment scripts and frontend config files (`contract-data.json`, `contract-data.js`). This eliminates millions of historical block scans, drastically speeding up event history rendering.
+- **Event-Driven History over On-Chain Storage Loop**: Frontends reconstruct full product pedigrees exclusively by indexing and sorting emitted lifecycle events (`ProductRegistered`, `AuthenticityHashSet`, `StatusChanged`, `WarrantyAdded`, `TransferInitiated`, `TransferAccepted`, `TransferCancelled`, `RepairRecordAdded`, `ProductRecycled`). UI rendering no longer loops over heavy on-chain dynamic storage arrays.
+- **In-Memory Block Timestamp Cache**: Created `_blockTimestampCache` in `ReLifeWallet` to resolve missing event timestamps via `provider.getBlock(ev.blockNumber)` while eliminating redundant RPC network requests when multiple events are mined in the same block.
+
+
 
 
 

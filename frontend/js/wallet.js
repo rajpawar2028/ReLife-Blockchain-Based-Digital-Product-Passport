@@ -449,6 +449,99 @@ const ReLifeWallet = {
   },
 
   /**
+   * Internal cache for block timestamps to minimize redundant RPC roundtrips.
+   */
+  _blockTimestampCache: new Map(),
+
+  /**
+   * Resolves the timestamp for a given block number using in-memory caching.
+   * @param {number} blockNumber Block number.
+   * @param {Object} [provider] Provider instance.
+   * @returns {Promise<number>} UNIX timestamp in seconds.
+   */
+  async getBlockTimestamp(blockNumber, provider) {
+    if (!blockNumber || blockNumber <= 0) return 0;
+    if (this._blockTimestampCache.has(blockNumber)) {
+      return this._blockTimestampCache.get(blockNumber);
+    }
+    const resolvedProvider = provider || this.provider || this.getReadOnlyProvider();
+    if (!resolvedProvider) return 0;
+    try {
+      const block = await resolvedProvider.getBlock(blockNumber);
+      const ts = block ? Number(block.timestamp) : 0;
+      this._blockTimestampCache.set(blockNumber, ts);
+      return ts;
+    } catch (_) {
+      return 0;
+    }
+  },
+
+  /**
+   * Queries contract event logs in batches of block ranges to respect RPC rate limits.
+   * Automatically starts from RELIFE_CONFIG.deploymentBlock by default rather than block 0.
+   * @param {Object} contract Ethers Contract instance.
+   * @param {Object} filter Ethers event filter.
+   * @param {number} [fromBlock] Starting block number.
+   * @param {number|string} [toBlock] Ending block number.
+   * @param {number} [batchSize=5000] Maximum block range per eth_getLogs RPC call.
+   * @returns {Promise<Array>} Array of merged event logs.
+   */
+  async queryFilterBatched(contract, filter, fromBlock, toBlock, batchSize = 5000) {
+    if (!contract || typeof contract.queryFilter !== "function") {
+      return [];
+    }
+
+    const provider = contract.runner?.provider || this.provider || this.getReadOnlyProvider();
+
+    // 1. Resolve fromBlock starting at deploymentBlock if available
+    let startBlock = fromBlock !== undefined && fromBlock !== null
+      ? Number(fromBlock)
+      : Number(window.RELIFE_CONFIG?.deploymentBlock || 0);
+
+    // 2. Resolve toBlock
+    let endBlock = toBlock;
+    if (endBlock === undefined || endBlock === null || endBlock === "latest") {
+      try {
+        endBlock = provider ? Number(await provider.getBlockNumber()) : startBlock + 10000;
+      } catch (_) {
+        endBlock = startBlock + 10000;
+      }
+    } else {
+      endBlock = Number(endBlock);
+    }
+
+    if (startBlock > endBlock) {
+      return [];
+    }
+
+    // 3. If range is small or batchSize covers the whole range, execute single queryFilter
+    if ((endBlock - startBlock) <= batchSize) {
+      try {
+        return await contract.queryFilter(filter, startBlock, endBlock);
+      } catch (err) {
+        console.warn("Direct queryFilter note:", err.message);
+        return await contract.queryFilter(filter);
+      }
+    }
+
+    // 4. Chunked iteration
+    const allEvents = [];
+    for (let currentFrom = startBlock; currentFrom <= endBlock; currentFrom += batchSize) {
+      const currentTo = Math.min(currentFrom + batchSize - 1, endBlock);
+      try {
+        const events = await contract.queryFilter(filter, currentFrom, currentTo);
+        if (Array.isArray(events) && events.length > 0) {
+          allEvents.push(...events);
+        }
+      } catch (err) {
+        console.warn(`Query range [${currentFrom}, ${currentTo}] failed:`, err.message);
+      }
+    }
+
+    return allEvents;
+  },
+
+  /**
    * Subscribes to wallet events (e.g., account changed, connected).
    */
   on(event, callback) {
@@ -465,3 +558,4 @@ const ReLifeWallet = {
 window.ReLifeWallet = ReLifeWallet;
 window.formatProduct = ReLifeWallet.formatProduct;
 window.formatWarranty = ReLifeWallet.formatWarranty;
+window.queryFilterBatched = ReLifeWallet.queryFilterBatched.bind(ReLifeWallet);
