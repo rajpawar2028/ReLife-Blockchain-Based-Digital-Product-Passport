@@ -868,3 +868,54 @@ In local development, our backend writes to `backend/data/scans.json`.
 #### Q3: What specific heuristics does ReLife use to detect photocopied or cloned QR codes, and how are false alarms prevented?
 > **Model Answer**: ReLife uses a dual-heuristic anomaly detection model: (1) **Volume threshold**: Flags passports scanned more than 5 cumulative times, as authentic consumer items are rarely scanned repeatedly. (2) **Velocity threshold**: Flags passports scanned from 3 or more distinct hashed IPs within a 10-minute rolling window, indicating that identical QR stickers are being scanned in different locations simultaneously. To prevent malicious bots from spamming the endpoint to trigger false counterfeit alarms, a sliding-window rate limiter restricts each client IP to a maximum of 20 requests per minute.
 
+---
+
+## Appendix: Feature 6 — Lifecycle Event Timeline & On-Chain Audit Trail
+
+### 1. New Concepts Explained in Plain English
+
+#### EVM Event Logs vs. Smart Contract Storage: The Big Gas Difference
+In Ethereum, storing data in contract storage (`SSTORE`) is the single most expensive operation on the EVM (20,000 gas per 32-byte slot).
+- If we stored every transfer, repair, status change, and warranty inside a giant `HistoryRecord[]` storage array in Solidity, **every transaction would cost more and more gas as the product aged**.
+- **The Event-Driven Solution**: When a smart contract emits an event (`emit StatusChanged(...)`), the EVM writes that data to the transaction receipt log.
+- **Why are logs special?**
+  1. Validator nodes do not need to keep logs in fast state memory (RAM/Merkle Patricia trie). Logs cost only ~375 gas plus 8 gas per byte!
+  2. Smart contracts *cannot read* event logs during transaction execution, but external apps (browsers, The Graph, Etherscan) can search and read them for free via `contract.queryFilter(...)`.
+  3. This gives us a complete, tamper-proof audit trail at zero ongoing storage cost!
+
+#### What Does `indexed` Do in Solidity Events?
+When you declare an event parameter as `indexed`:
+```solidity
+event StatusChanged(uint256 indexed productId, Status oldStatus, Status newStatus, address indexed actor, uint256 timestamp);
+```
+The EVM creates a cryptographic **Topic** (a 32-byte hash) for that parameter and indexes it in a Bloom filter:
+- When a client queries `contract.filters.StatusChanged(productId)`, the Ethereum RPC node does not have to scan millions of blocks line-by-line; it uses the Bloom filter and topic index to locate matching events in milliseconds.
+- **Rule**: An event can have at most **3 indexed parameters** (`topics[1]`, `topics[2]`, `topics[3]`). The 0th topic (`topics[0]`) is reserved for the `keccak256` signature of the event itself.
+
+#### Deterministic Chronological Sorting
+Why can't we simply sort events by `timestamp`?
+- Block timestamps are set once per block by the validator/miner. If an owner initiates a transfer and cancels it in the same block, or if a repair is recorded in the same transaction, both events will have the **exact same timestamp**!
+- To reconstruct the true sequence of physical events without race conditions, we sort using a **three-tier hierarchy**:
+  1. `blockNumber` (earlier blocks always happened first).
+  2. `logIndex` / `index` (the EVM guarantees that log index increments strictly in the order events were emitted inside the block).
+  3. `timestamp` (fallback for off-chain reference).
+
+#### Front-End Security: Safe DOM APIs vs. `innerHTML` (Preventing XSS)
+In decentralized applications, product names, repair notes, and serial numbers come from untrusted external wallets.
+- **The Danger**: If an attacker registers a product with brand `<img src=x onerror="stealWalletData()">` and you render it using `element.innerHTML = event.brand`, the browser will execute that malicious JavaScript code inside the victim's session!
+- **The Defense**: We strictly build the DOM using `document.createElement()` and assign user text using `node.textContent = ...`. The browser automatically treats the input strictly as inert plain text, rendering `<script>` or HTML tags harmlessly as characters without ever executing them.
+
+---
+
+### 2. Three Viva / Interview Questions You Should Be Able to Answer (Feature 6)
+
+#### Q1: Why is querying event logs using `queryFilter` much more scalable and gas-efficient than storing lifecycle history in Solidity storage arrays?
+> **Model Answer**: Contract storage on Ethereum modifies the global state tree, costing 20,000 gas per 32-byte slot. Appending every lifecycle change to an on-chain storage array causes gas costs to grow unbounded over the life of a product. In contrast, emitting EVM events writes log records to transaction receipts. Receipts cost only ~375 gas plus 8 gas per byte and do not bloat the EVM state trie. External frontends can index and query these logs for free using `contract.queryFilter` without incurring ongoing storage rent or gas costs.
+
+#### Q2: What is the purpose of the `indexed` keyword in Solidity events, and why can an event contain at most 3 indexed topics?
+> **Model Answer**: The `indexed` keyword tells the EVM to store the parameter in the event log's `topics` array rather than the data payload. Ethereum nodes generate Bloom filters on these topics, enabling lightweight clients and frontends to filter and search for events (e.g. all events matching a specific `productId`) in $O(1)$ time without scanning every transaction. The EVM limits events to a maximum of 3 indexed topics (`topics[1..3]`) because `topics[0]` is reserved for the event signature hash (`keccak256("EventName(types)")`) and the EVM log structure allocates exactly 4 topic pointers per log record.
+
+#### Q3: Why is using `textContent` instead of `innerHTML` critical when rendering dynamic on-chain product and repair descriptions on a web page?
+> **Model Answer**: In a public blockchain dApp, anyone with an authorized role can write arbitrary string data into transaction payloads. If user-supplied strings (such as brand names, repair descriptions, or recycling facility notes) contain malicious HTML or JavaScript (e.g., `<script>` or `<img onerror=...>`) and are injected via `innerHTML`, the browser executes the script in the context of the user's session, resulting in a Stored Cross-Site Scripting (XSS) attack that could compromise wallet interactions. Using `node.textContent` guarantees that the browser treats all input as inert text, neutralizing script execution vectors.
+
+

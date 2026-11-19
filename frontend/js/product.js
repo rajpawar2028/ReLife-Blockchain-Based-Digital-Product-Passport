@@ -354,47 +354,317 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   /**
-   * Loads repair history array from contract
+   * Loads full lifecycle history and events from contract, rendering a chronological timeline
    */
   async function loadRepairHistory(contract, productId) {
-    try {
-      const repairs = await contract.getProductHistory(productId);
+    if (!repairTimeline || !noRepairsNotice) return;
 
-      if (!repairs || repairs.length === 0) {
-        noRepairsNotice.style.display = "block";
-        repairTimeline.style.display = "none";
-        return;
+    const STATUS_NAMES = ["Manufactured", "Sold", "InRepair", "Recycled"];
+    const timelineEvents = [];
+
+    // 1. Query on-chain events via filters if queryFilter is supported
+    if (contract && typeof contract.queryFilter === "function") {
+      try {
+        // ProductRegistered
+        if (contract.filters?.ProductRegistered) {
+          const events = await contract.queryFilter(contract.filters.ProductRegistered(productId));
+          events.forEach((ev) => {
+            timelineEvents.push({
+              blockNumber: Number(ev.blockNumber || 0),
+              logIndex: Number(ev.index !== undefined ? ev.index : (ev.transactionIndex || 0)),
+              timestamp: Number(ev.args?.timestamp || 0),
+              icon: "🏭",
+              title: "Product Manufactured & Registered",
+              actor: ev.args?.manufacturer || "",
+              description: `Model: ${ev.args?.modelName || ""} | Brand: ${ev.args?.brand || ""} | Serial: ${ev.args?.serialNumber || ""}`,
+              linkUri: ev.args?.metadataURI || "",
+              linkLabel: "View Passport Metadata (IPFS)",
+            });
+          });
+        }
+      } catch (e) {
+        console.warn("ProductRegistered query:", e.message);
       }
 
-      noRepairsNotice.style.display = "none";
-      repairTimeline.style.display = "block";
-      repairTimeline.innerHTML = "";
+      try {
+        // StatusChanged
+        if (contract.filters?.StatusChanged) {
+          const events = await contract.queryFilter(contract.filters.StatusChanged(productId));
+          events.forEach((ev) => {
+            const oldStatus = STATUS_NAMES[Number(ev.args?.oldStatus)] || "Unknown";
+            const newStatus = STATUS_NAMES[Number(ev.args?.newStatus)] || "Unknown";
+            timelineEvents.push({
+              blockNumber: Number(ev.blockNumber || 0),
+              logIndex: Number(ev.index !== undefined ? ev.index : (ev.transactionIndex || 0)),
+              timestamp: Number(ev.args?.timestamp || 0),
+              icon: "🔄",
+              title: `Status Changed: ${oldStatus} ➔ ${newStatus}`,
+              actor: ev.args?.actor || "",
+              description: `Lifecycle state updated from ${oldStatus} to ${newStatus}.`,
+            });
+          });
+        }
+      } catch (e) {
+        console.warn("StatusChanged query:", e.message);
+      }
 
-      repairs.forEach((record) => {
-        const item = document.createElement("div");
-        item.className = "timeline-item";
+      try {
+        // WarrantyAdded
+        if (contract.filters?.WarrantyAdded) {
+          const events = await contract.queryFilter(contract.filters.WarrantyAdded(productId));
+          events.forEach((ev) => {
+            const expiryStr = ev.args?.expiryTimestamp
+              ? new Date(Number(ev.args.expiryTimestamp) * 1000).toLocaleDateString()
+              : "N/A";
+            timelineEvents.push({
+              blockNumber: Number(ev.blockNumber || 0),
+              logIndex: Number(ev.index !== undefined ? ev.index : (ev.transactionIndex || 0)),
+              timestamp: Number(ev.args?.expiryTimestamp || 0),
+              icon: "🛡️",
+              title: `Warranty Issued: ${ev.args?.warrantyType || "Standard Warranty"}`,
+              actor: ev.args?.issuer || "",
+              description: `Coverage active through ${expiryStr}`,
+              linkUri: ev.args?.termsUri || "",
+              linkLabel: "View Warranty Policy (IPFS)",
+            });
+          });
+        }
+      } catch (e) {
+        console.warn("WarrantyAdded query:", e.message);
+      }
 
-        const dateStr = new Date(Number(record.timestamp) * 1000).toLocaleString();
-        const shortCenter = `${record.repairCenter.slice(0, 6)}...${record.repairCenter.slice(-4)}`;
+      try {
+        // TransferInitiated
+        if (contract.filters?.TransferInitiated) {
+          const events = await contract.queryFilter(contract.filters.TransferInitiated(productId));
+          events.forEach((ev) => {
+            const toShort = ev.args?.to ? `${ev.args.to.slice(0, 6)}...${ev.args.to.slice(-4)}` : "";
+            timelineEvents.push({
+              blockNumber: Number(ev.blockNumber || 0),
+              logIndex: Number(ev.index !== undefined ? ev.index : (ev.transactionIndex || 0)),
+              timestamp: Number(ev.args?.timestamp || 0),
+              icon: "📤",
+              title: "Ownership Transfer Proposed",
+              actor: ev.args?.from || "",
+              description: `Transfer initiated to pending recipient: ${toShort}`,
+            });
+          });
+        }
+      } catch (e) {
+        console.warn("TransferInitiated query:", e.message);
+      }
 
-        item.innerHTML = `
-          <div class="timeline-date">${dateStr} &bull; Certified Center: <code>${shortCenter}</code></div>
-          <div class="timeline-type">${record.repairType} (Service #${record.id.toString()})</div>
-          <div class="timeline-desc">${record.description}</div>
-          <div style="margin-top: 0.35rem;">
-            <a href="${record.serviceUri.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/")}" target="_blank" style="color: var(--secondary); font-size: 0.8rem; text-decoration: underline;">
-              View Diagnostic Report (IPFS) &rarr;
-            </a>
-          </div>
-        `;
+      try {
+        // TransferAccepted
+        if (contract.filters?.TransferAccepted) {
+          const events = await contract.queryFilter(contract.filters.TransferAccepted(productId));
+          events.forEach((ev) => {
+            const prevShort = ev.args?.previousOwner ? `${ev.args.previousOwner.slice(0, 6)}...${ev.args.previousOwner.slice(-4)}` : "";
+            const newShort = ev.args?.newOwner ? `${ev.args.newOwner.slice(0, 6)}...${ev.args.newOwner.slice(-4)}` : "";
+            timelineEvents.push({
+              blockNumber: Number(ev.blockNumber || 0),
+              logIndex: Number(ev.index !== undefined ? ev.index : (ev.transactionIndex || 0)),
+              timestamp: Number(ev.args?.timestamp || 0),
+              icon: "🤝",
+              title: "Ownership Transfer Accepted & Finalized",
+              actor: ev.args?.newOwner || "",
+              description: `Ownership transfer completed from ${prevShort} to ${newShort}.`,
+            });
+          });
+        }
+      } catch (e) {
+        console.warn("TransferAccepted query:", e.message);
+      }
 
-        repairTimeline.appendChild(item);
-      });
-    } catch (err) {
-      console.warn("Could not query repair history:", err.message);
+      try {
+        // TransferCancelled
+        if (contract.filters?.TransferCancelled) {
+          const events = await contract.queryFilter(contract.filters.TransferCancelled(productId));
+          events.forEach((ev) => {
+            const pendingShort = ev.args?.pendingOwner ? `${ev.args.pendingOwner.slice(0, 6)}...${ev.args.pendingOwner.slice(-4)}` : "";
+            timelineEvents.push({
+              blockNumber: Number(ev.blockNumber || 0),
+              logIndex: Number(ev.index !== undefined ? ev.index : (ev.transactionIndex || 0)),
+              timestamp: Number(ev.args?.timestamp || 0),
+              icon: "❌",
+              title: "Ownership Transfer Cancelled",
+              actor: ev.args?.owner || "",
+              description: `Pending transfer to ${pendingShort} was cancelled by owner.`,
+            });
+          });
+        }
+      } catch (e) {
+        console.warn("TransferCancelled query:", e.message);
+      }
+
+      try {
+        // RepairRecordAdded
+        if (contract.filters?.RepairRecordAdded) {
+          const events = await contract.queryFilter(contract.filters.RepairRecordAdded(productId));
+          events.forEach((ev) => {
+            timelineEvents.push({
+              blockNumber: Number(ev.blockNumber || 0),
+              logIndex: Number(ev.index !== undefined ? ev.index : (ev.transactionIndex || 0)),
+              timestamp: Number(ev.args?.timestamp || 0),
+              icon: "🔧",
+              title: `Service Record: ${ev.args?.repairType || "Maintenance"} (#${ev.args?.repairId?.toString() || ""})`,
+              actor: ev.args?.repairCenter || "",
+              description: ev.args?.description || "Maintenance completed.",
+              linkUri: ev.args?.serviceUri || "",
+              linkLabel: "View Diagnostic Report (IPFS)",
+            });
+          });
+        }
+      } catch (e) {
+        console.warn("RepairRecordAdded query:", e.message);
+      }
+
+      try {
+        // ProductRecycled
+        if (contract.filters?.ProductRecycled) {
+          const events = await contract.queryFilter(contract.filters.ProductRecycled(productId));
+          events.forEach((ev) => {
+            timelineEvents.push({
+              blockNumber: Number(ev.blockNumber || 0),
+              logIndex: Number(ev.index !== undefined ? ev.index : (ev.transactionIndex || 0)),
+              timestamp: Number(ev.args?.timestamp || 0),
+              icon: "♻️",
+              title: "Product Recycled & Decommissioned",
+              actor: ev.args?.recycler || "",
+              description: `Facility: ${ev.args?.recyclingFacility || "Certified Recycler"} | Notes: ${ev.args?.notes || "End-of-life processed"}`,
+              linkUri: ev.args?.certificateUri || "",
+              linkLabel: "View Destruction Certificate (IPFS)",
+            });
+          });
+        }
+      } catch (e) {
+        console.warn("ProductRecycled query:", e.message);
+      }
+    }
+
+    // 2. Query getProductHistory as reliable backup for repair records
+    try {
+      const repairs = await contract.getProductHistory(productId);
+      const hasRepairsInEvents = timelineEvents.some((e) => e.icon === "🔧");
+      if (repairs && repairs.length > 0 && !hasRepairsInEvents) {
+        repairs.forEach((record) => {
+          timelineEvents.push({
+            blockNumber: 0,
+            logIndex: 0,
+            timestamp: Number(record.timestamp || 0),
+            icon: "🔧",
+            title: `Service Record: ${record.repairType || "Maintenance"} (#${record.id?.toString() || ""})`,
+            actor: record.repairCenter || "",
+            description: record.description || "Diagnostics report filed.",
+            linkUri: record.serviceUri || "",
+            linkLabel: "View Diagnostic Report (IPFS)",
+          });
+        });
+      }
+    } catch (e) {
+      console.warn("getProductHistory lookup:", e.message);
+    }
+
+    if (timelineEvents.length === 0) {
       noRepairsNotice.style.display = "block";
       repairTimeline.style.display = "none";
+      return;
     }
+
+    // 3. Chronological sorting (ascending by blockNumber, then logIndex, then timestamp)
+    timelineEvents.sort((a, b) => {
+      if (a.blockNumber && b.blockNumber && a.blockNumber !== b.blockNumber) {
+        return a.blockNumber - b.blockNumber;
+      }
+      if (a.logIndex !== undefined && b.logIndex !== undefined && a.blockNumber === b.blockNumber && a.logIndex !== b.logIndex) {
+        return a.logIndex - b.logIndex;
+      }
+      return a.timestamp - b.timestamp;
+    });
+
+    noRepairsNotice.style.display = "none";
+    repairTimeline.style.display = "block";
+    repairTimeline.innerHTML = "";
+
+    // 4. Render timeline entries safely using DOM APIs and textContent
+    timelineEvents.forEach((ev) => {
+      const item = document.createElement("div");
+      item.className = "timeline-item";
+
+      // Date & Actor Row
+      const dateRow = document.createElement("div");
+      dateRow.className = "timeline-date";
+
+      const dateSpan = document.createElement("span");
+      dateSpan.textContent = ev.timestamp > 0
+        ? new Date(ev.timestamp * 1000).toLocaleString()
+        : "On-Chain Verified Record";
+      dateRow.appendChild(dateSpan);
+
+      const zeroAddr = "0x0000000000000000000000000000000000000000";
+      if (ev.actor && ev.actor.toLowerCase() !== zeroAddr) {
+        const actorSpan = document.createElement("span");
+        actorSpan.style.marginLeft = "0.5rem";
+        actorSpan.style.color = "var(--text-muted)";
+        actorSpan.textContent = " • Actor: ";
+
+        const actorLink = document.createElement("a");
+        const shortAddr = `${ev.actor.slice(0, 6)}...${ev.actor.slice(-4)}`;
+        actorLink.href = `https://sepolia.etherscan.io/address/${encodeURIComponent(ev.actor)}`;
+        actorLink.target = "_blank";
+        actorLink.rel = "noopener noreferrer";
+        actorLink.style.color = "var(--secondary)";
+        actorLink.style.textDecoration = "underline";
+        actorLink.style.fontFamily = "monospace";
+        actorLink.textContent = shortAddr; // Safe textContent
+
+        actorSpan.appendChild(actorLink);
+        dateRow.appendChild(actorSpan);
+      }
+
+      // Title & Icon Row
+      const typeRow = document.createElement("div");
+      typeRow.className = "timeline-type";
+
+      const iconSpan = document.createElement("span");
+      iconSpan.style.marginRight = "0.4rem";
+      iconSpan.textContent = ev.icon || "•";
+      typeRow.appendChild(iconSpan);
+
+      const titleSpan = document.createElement("span");
+      titleSpan.textContent = ev.title || "Passport Event"; // Safe textContent
+      typeRow.appendChild(titleSpan);
+
+      // Description Row
+      const descRow = document.createElement("div");
+      descRow.className = "timeline-desc";
+      descRow.textContent = ev.description || ""; // Safe textContent
+
+      item.appendChild(dateRow);
+      item.appendChild(typeRow);
+      item.appendChild(descRow);
+
+      // IPFS Document Link if present
+      if (ev.linkUri && typeof ev.linkUri === "string" && ev.linkUri.trim().length > 0) {
+        const linkDiv = document.createElement("div");
+        linkDiv.style.marginTop = "0.35rem";
+
+        const link = document.createElement("a");
+        const gatewayUrl = ev.linkUri.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
+        link.href = gatewayUrl;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.style.color = "var(--secondary)";
+        link.style.fontSize = "0.82rem";
+        link.style.textDecoration = "underline";
+        link.textContent = `${ev.linkLabel || "View On-Chain Document (IPFS)"} →`; // Safe textContent
+
+        linkDiv.appendChild(link);
+        item.appendChild(linkDiv);
+      }
+
+      repairTimeline.appendChild(item);
+    });
   }
 
   /**

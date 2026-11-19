@@ -350,6 +350,9 @@ Every state mutation in `ReLife.sol` has been benchmarked for gas efficiency:
    Stores only a 32-byte `keccak256(secret)` hash commitment on-chain, keeping the ephemeral 256-bit randomness off the ledger until verified via gas-free `view` calls.
 6. **Scan Velocity & Counterfeit Anomaly Alert (Feature 5)**:
    Off-chain scan analytics engine in the Express backend tracking verification frequency and distinct network origins via salted HMAC-SHA256 IP anonymization (zero PII stored). Automatically flags passports as suspicious when cumulative scans exceed 5 or when scanned across $\ge 3$ distinct networks within 10 minutes, displaying prominent warnings on the verification portal.
+7. **Comprehensive Event-Driven Lifecycle Timeline (Feature 6)**:
+   Reconstructs the complete lifecycle history directly from indexed EVM events (`ProductRegistered`, `StatusChanged`, `WarrantyAdded`, `TransferInitiated`, `TransferAccepted`, `TransferCancelled`, `RepairRecordAdded`, `ProductRecycled`). Renders a chronological vertical timeline with safe DOM `textContent`, direct Sepolia Etherscan actor links, action icons, and IPFS document links.
+
 
 
 ---
