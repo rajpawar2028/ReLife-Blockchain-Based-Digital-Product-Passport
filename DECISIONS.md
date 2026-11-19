@@ -149,6 +149,13 @@
 - **Security Headers (`helmet`) & CORS Whitelist**: Added `helmet` to inject critical HTTP headers (`X-Content-Type-Options: nosniff`, `X-Frame-Options: SAMEORIGIN`, `Strict-Transport-Security`, `X-Download-Options`). Replaced open wildcard CORS with a restricted origin allowlist (`http://localhost:5000`, `http://127.0.0.1:5000`, `http://localhost:3000`, and `process.env.FRONTEND_URL`), returning HTTP 403 on disallowed origins.
 - **Stack Trace & Information Disclosure Shielding**: Standardized centralized error-handling middleware so internal stack traces, database details, system paths, or environment variables are never leaked to the client browser in HTTP 500 error responses.
 
+## Area 5: Secrets Hygiene & Pre-Commit Protection
+- **Comprehensive Secret Scan Audit**: Executed automated cryptographic pattern scanners across the working tree and 100% of git commit history. Confirmed that zero private keys (64-hex strings), Pinata JWTs, or embedded RPC API keys exist in git history or tracked files.
+- **Strict Frontend Secret Isolation**: Confirmed that all Pinata IPFS credentials and environment secrets are isolated strictly within the Node.js backend. Client-side frontend bundles contain zero JWTs, private keys, or API tokens.
+- **Isolated Testnet Deployer Wallet**: Required that smart contract deployment is performed exclusively by a dedicated testnet wallet holding only Sepolia test ETH, strictly isolated from any mainnet funds. Confirmed that the deployer private key was never committed to version control.
+- **Automated Pre-Commit Defense (`scripts/check-secrets.js`)**: Implemented a standalone pre-commit verification script hooked into `.git/hooks/pre-commit` and `package.json` (`npm run check-secrets`). The hook runs automatically before every `git commit`, inspecting cached/staged changes for `.env` files, 64-hex key assignments, and JWT patterns, immediately aborting the commit if sensitive data is detected.
+
+
 
 
 

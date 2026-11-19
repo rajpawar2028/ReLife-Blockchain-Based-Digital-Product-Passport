@@ -34,7 +34,7 @@
 - [x] **Area 2: Pagination for Product Lists** — Contract view pagination (offset, limit cap 50) + per-manufacturer index; frontend Prev/Next controls, page sizes, empty state.
 - [x] **Area 3: Pausable + Role Revocation for Emergencies** — OpenZeppelin Pausable, admin pause/unpause, whenNotPaused on 13 mutator functions, last admin lockout protection (`ReLife__CannotRevokeLastAdmin`), Admin portal Emergency Circuit Breaker UI, sticky global pause banner on all pages, role revocation confirmation dialogs, and 29 dedicated tests.
 - [x] **Area 4: Backend Input Validation & Rate Limiting** — Server-side validation (types, trimmed lengths, category whitelist, numeric ranges, `ethers.isAddress`), file magic byte inspection, random UUID filenames, 5MB memoryStorage cap, `express-rate-limit` (10 req/min with 429 on 11th), `helmet` security headers, CORS allowlist, clean JSON error handling, and 18 dedicated tests.
-- [ ] **Area 5: Secrets Hygiene** — Whole-repo secret scan, frontend secret isolation audit, test wallet verification, pre-commit hook script.
+- [x] **Area 5: Secrets Hygiene** — Whole-repo secret scan (0 leaks in git history or tracked files), frontend secret isolation verified, dedicated testnet wallet safety, automated pre-commit hook (`scripts/check-secrets.js`), and 9 dedicated tests.
 - [ ] **Area 6: Failure-Case Tests + Gas Report** — Comprehensive negative edge-case test suites, hardhat-gas-reporter gas table, solidity-coverage audit.
 
 ---
@@ -53,7 +53,7 @@
     - Added dedicated manual fallback (`#fallbackManualBtn`) and automatic focus on `#productIdInput` if camera permission is denied or no camera hardware exists.
     - Built comprehensive `parseQrPayload` utility parsing full URLs, query parameters, JSON objects, raw integer IDs, and serial numbers, extracting `productId` and optional `secret`.
     - Added 20 automated tests in `test/CameraScanner.test.js` validating all parsing variants, DOM structure, and permission error handling.
-  - Ran full test suite across 24 test suites: **292 passing tests** with 100% success rate (including 16 for Area 1, 13 for Area 2, 29 for Area 3, and 18 for Area 4).
+  - Ran full test suite across 25 test suites: **301 passing tests** with 100% success rate (including 16 for Area 1, 13 for Area 2, 29 for Area 3, 18 for Area 4, and 9 for Area 5).
   - **Live Sepolia Deployment & Artifact Export**:
     - Deployed updated contract with end-to-end warranty configuration at registration to Ethereum Sepolia at [`0x315550A78C276cEb7fa5F54EeE91A03e2fb72dcc`](https://sepolia.etherscan.io/address/0x315550A78C276cEb7fa5F54EeE91A03e2fb72dcc).
     - Verified bytecode confirmed on-chain (21,502 bytes deployed, `getCode != "0x"`).

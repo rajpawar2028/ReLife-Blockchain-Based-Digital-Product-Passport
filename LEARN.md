@@ -1253,6 +1253,54 @@ Attackers use stack traces to perform reconnaissance on server directories and k
 #### Q3: Why should a backend API never return raw error stack traces to client web browsers?
 > **Model Answer**: Exposing raw error stack traces violates the Principle of Least Privilege and leads to Information Disclosure (CWE-209). Stack traces reveal internal directory paths, operating system details, third-party library versions, and database schemas. Attackers use this reconnaissance to pinpoint known vulnerabilities or locate sensitive environment configurations. A hardened backend catches errors centrally, logs the internal details server-side for developers, and returns sanitized, generic JSON errors to the client.
 
+---
+
+## Area 5: Secrets Hygiene & Pre-Commit Protection
+
+### 1. New Concepts Explained in Plain English
+
+#### Git Working Tree vs. Git Commit History
+A common and dangerous misconception among beginner developers is thinking that deleting a sensitive file (like running `git rm .env` and committing) erases it from GitHub.
+In Git:
+- **The Working Tree** is just what your files look like right now.
+- **Git Commit History** is an immutable, cryptographic chain of snapshots (directed acyclic graph). Every commit forever preserves every file that existed when that commit was made.
+- If you accidentally commit a private key or API token even once, automated public scraping bots (such as GitGuardian or darknet scrapers) detect it within **3 to 5 seconds** of pushing to GitHub, even if you delete it immediately in the next commit!
+- **Rule of Thumb**: Once a private key or secret touches a public git commit, **it must be considered permanently compromised and immediately rotated**.
+
+#### Why Pinata JWTs Must Never Appear in Frontend Code
+In Web3 dApps, the user signs blockchain transactions using their own MetaMask wallet in the browser.
+However, decentralized storage services like **Pinata IPFS** require administrative credentials (API keys or Pinata JWTs) to upload and pin data.
+If you call Pinata directly from browser JavaScript:
+1. Anyone can right-click -> "Inspect" -> "Network tab" or view your frontend `.js` source code to steal your `PINATA_JWT`.
+2. Attackers can then use your token to upload illegal files, delete all your pinned digital product passports, or deplete your billing quota.
+3. **The Solution**: The frontend sends metadata and files to our own backend server (`POST /api/ipfs/upload-metadata`). The backend reads `process.env.PINATA_JWT` privately on the server and talks to Pinata on the frontend's behalf. The JWT never leaves the server.
+
+#### Dedicated Testnet Wallets vs. Mainnet Wallets
+Never, under any circumstances, use a MetaMask account that holds real mainnet funds (real ETH, real tokens, or mainnet NFTs) for development or testnet deployments.
+Always generate a **dedicated, test-only wallet** (e.g. Account 2 in MetaMask) whose private key is used strictly for Sepolia testnet testing. If that test wallet key is ever lost or exposed, zero financial loss occurs because testnet ETH has no monetary value.
+
+#### How Git Pre-Commit Hooks Protect You
+Human developers get tired, distracted, or rush to make deadlines. That's when mistakes happen: someone accidentally runs `git add .` and stages a `.env` file containing secret keys.
+A **Pre-Commit Hook** (`.git/hooks/pre-commit` and `scripts/check-secrets.js`) is an automated gatekeeper. Every time you type `git commit`, Git pauses and executes the script before creating the commit.
+The script:
+1. Checks if any `.env` file is staged.
+2. Runs regular expressions against staged changes looking for 64-character hexadecimal keys or JWT formats (`ey...`).
+3. If any secret is detected, it aborts the commit immediately with an error message and exit code 1. The sensitive data is blocked on your machine and never reaches your commit history!
+
+---
+
+### 2. Three Viva / Interview Questions You Should Be Able to Answer (Area 5)
+
+#### Q1: If a developer accidentally commits a private key to a GitHub repository and deletes it in the subsequent commit, is the key secure? Why or why not, and what must be done?
+> **Model Answer**: No, the key is completely compromised. Git tracks an immutable commit history; anyone can view the historical commit diff or check out that commit hash to read the private key. Furthermore, automated scanning bots continuously monitor public GitHub event streams and scrape exposed credentials within seconds. The developer must treat the key as compromised immediately, generate a new wallet, transfer any assets to the new wallet, and rotate all affected credentials.
+
+#### Q2: Why must third-party API credentials (like Pinata IPFS JWTs) be managed exclusively by a backend server rather than directly in client-side Web3 frontend JavaScript?
+> **Model Answer**: Client-side JavaScript runs entirely within the end-user's browser runtime. Any variable, API token, or HTTP header sent directly from the browser is completely visible in the browser's Developer Tools (Network tab and Source tab). Exposing a Pinata JWT allows any user to hijack the service account, upload malicious content, unpin project assets, or exhaust subscription quotas. Routing requests through an Express backend ensures the JWT resides strictly in secure server-side environment variables (`process.env.PINATA_JWT`) and is never leaked to the client.
+
+#### Q3: How does a Git pre-commit hook protect developers from accidental credential leaks, and how does regex pattern matching identify sensitive tokens?
+> **Model Answer**: A Git pre-commit hook is a client-side lifecycle script located in `.git/hooks/pre-commit` that runs automatically whenever `git commit` is executed. By inspecting staged files (`git diff --cached`), the script parses the staged code using regular expressions targeting known secret structures — such as 64-character hexadecimal strings for Ethereum private keys (`/[a-fA-F0-9]{64}/`) or base64-encoded three-part tokens for JWTs (`/ey...\.ey...\..../`). If a match is found, the hook exits with non-zero status, blocking the commit before the secret can enter the local repository history or be pushed to remote version control.
+
+
 
 
 

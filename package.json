@@ -6,7 +6,8 @@
     "test": "hardhat test",
     "compile": "hardhat compile",
     "start": "node backend/server.js",
-    "backend": "node backend/server.js"
+    "backend": "node backend/server.js",
+    "check-secrets": "node scripts/check-secrets.js"
   },
   "keywords": [
     "blockchain",
