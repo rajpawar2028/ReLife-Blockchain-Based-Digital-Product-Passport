@@ -84,7 +84,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             const prod = ReLifeWallet.formatProduct(rawProd);
             const [warranty, isExpired] = await contract.getWarranty(BigInt(i));
             const history = await contract.getOwnershipHistory(BigInt(i));
-            owned.push({ prod, warranty, isExpired, history, pendingOwner });
+            const repairs = await contract.getProductHistory(BigInt(i)).catch(() => []);
+            owned.push({ prod, warranty, isExpired, history, pendingOwner, repairs });
           } else if (pendingOwner.toLowerCase() === userAccount.toLowerCase()) {
             const prod = ReLifeWallet.formatProduct(rawProd);
             incoming.push({ prod, rawProd });
@@ -141,7 +142,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
       emptyNotice.style.display = "none";
 
-      owned.forEach(({ prod, warranty, isExpired, history, pendingOwner }) => {
+      owned.forEach(({ prod, warranty, isExpired, history, pendingOwner, repairs }) => {
         const card = document.createElement("div");
         card.className = "owner-card";
 
@@ -151,6 +152,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const pId = prod.idStr;
         const hasPending = (pendingOwner && pendingOwner !== ethers.ZeroAddress);
+        const repList = repairs || [];
 
         let transferActions = "";
         if (hasPending) {
@@ -206,6 +208,21 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             <div class="history-list">
               <strong>Ownership Pedigree:</strong> ${history.length} transfer(s) recorded.
+            </div>
+
+            <div style="margin-top: 0.6rem; font-size: 0.85rem; color: #cbd5e1; border-top: 1px dashed var(--dark-border); padding-top: 0.5rem;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span>&#128295; <strong>Service History:</strong></span>
+                <span class="badge ${repList.length > 0 ? 'badge-info' : 'badge-secondary'}" style="font-size:0.75rem;">
+                  ${repList.length} Record${repList.length === 1 ? '' : 's'}
+                </span>
+              </div>
+              ${repList.length > 0 ? `
+                <div style="margin-top: 0.4rem; padding: 0.4rem 0.6rem; background: rgba(15,23,42,0.6); border-radius: 4px; font-size: 0.8rem;">
+                  Latest: <em>${repList[repList.length - 1].repairType || 'Maintenance'}</em> 
+                  ${repList[repList.length - 1].timestamp ? `(${new Date(Number(repList[repList.length - 1].timestamp) * 1000).toLocaleDateString()})` : ''}
+                </div>
+              ` : ''}
             </div>
           </div>
 

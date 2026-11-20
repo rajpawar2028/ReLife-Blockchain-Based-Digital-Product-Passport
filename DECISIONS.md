@@ -190,6 +190,13 @@
 - **Pre-Transaction IPFS Upload Gate**: Structured the product registration pipeline in `manufacturer.js` and recycling decommissioning in `recycler.js` so on-chain MetaMask transactions (`registerProductWithWarranty` / `addRecyclingRecord`) are only dispatched if and only if the backend IPFS upload succeeds and returns a valid `ipfsUri` (`ipfs://bafy...`). If the backend is unreachable or IPFS fails, execution halts immediately with a clear UI alert and zero user gas wasted.
 - **Offline Test Mock Isolation**: Updated `pinataService.js` to ensure automated test runners (`process.argv.includes("test")` or `process.env.NODE_ENV === "test"`) default to offline mock IPFS storage unless explicitly overridden with `TEST_LIVE_PINATA=true`, ensuring deterministic, fast, zero-dependency CI/CD test runs.
 
+## Repair Center Portal & Service Tracking
+- **Dual-Identifier Repair Logging (`logRepair`)**: Designed `logRepair` in `contracts/ReLife.sol` to accept either on-chain `uint256 productId` or physical `string calldata serialNumber`, resolving serial numbers to IDs using `_serialToProductId`. Emits both `RepairLogged` (with technician address, parts replaced, and optional cost) and `RepairRecordAdded` to preserve 100% backward compatibility with existing timeline listeners.
+- **Extended Maintenance Details Separation**: Stored `partsReplaced` and `cost` in a dedicated `mapping(uint256 => mapping(uint256 => RepairDetails)) private _repairDetails` rather than modifying the base `RepairRecord` struct, avoiding ABI breaking changes and preserving stack depth across existing functions.
+- **End-to-End Role Gate & Product Inspection**: Structured `repair.html` and `repair.js` with client-side `hasRole(REPAIR_CENTER_ROLE, userAccount)` authorization, dynamic "Verify Product" lookup, instant terminal `Recycled` status locking, and IPFS diagnostics attachment via `/api/ipfs/upload-file`.
+- **Global Multi-Portal Navigation Consistency**: Added "Repair Center" across all 7 navigation bars with page-specific active highlights, ensuring seamless navigation for all ecosystem roles.
+
+
 
 
 

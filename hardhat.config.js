@@ -66,6 +66,7 @@ module.exports = {
   networks: {
     hardhat: {
       chainId: 31337,
+      allowUnlimitedContractSize: true,
     },
     sepolia: {
       url: rawRpcUrl || "http://127.0.0.1:8545",

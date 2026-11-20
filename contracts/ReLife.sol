@@ -129,6 +129,14 @@ contract ReLife is AccessControl, Pausable {
     // Mapping from product ID to keccak256 hash of the off-chain authenticity secret
     mapping(uint256 => bytes32) private _authenticityHashes;
 
+    struct RepairDetails {
+        string partsReplaced;
+        uint256 cost;
+    }
+
+    // Mapping from product ID to repair ID to additional repair details (parts replaced, cost)
+    mapping(uint256 => mapping(uint256 => RepairDetails)) private _repairDetails;
+
     // Mapping from manufacturer address to array of registered product IDs (for efficient pagination)
     mapping(address => uint256[]) private _manufacturerProducts;
 
@@ -173,6 +181,16 @@ contract ReLife is AccessControl, Pausable {
         string repairType,
         string description,
         string serviceUri,
+        uint256 timestamp
+    );
+
+    event RepairLogged(
+        uint256 indexed productId,
+        address indexed repairCenter,
+        string description,
+        string partsReplaced,
+        uint256 costOptional,
+        string ipfsHash,
         uint256 timestamp
     );
 
@@ -970,6 +988,126 @@ contract ReLife is AccessControl, Pausable {
         return repairId;
     }
 
+    function _logRepairInternal(
+        uint256 productId,
+        string memory repairType,
+        string memory description,
+        string memory partsReplaced,
+        uint256 costOptional,
+        string memory ipfsHash
+    ) internal returns (uint256) {
+        _requireActiveProduct(productId);
+        if (bytes(description).length == 0) {
+            revert ReLife__EmptyString("description");
+        }
+
+        uint256 repairId = _productRepairs[productId].length + 1;
+        string memory effectiveType = bytes(repairType).length > 0 ? repairType : "Maintenance";
+        string memory effectiveUri = bytes(ipfsHash).length > 0 ? ipfsHash : "none";
+
+        _productRepairs[productId].push(
+            RepairRecord({
+                id: repairId,
+                productId: productId,
+                repairCenter: msg.sender,
+                repairType: effectiveType,
+                description: description,
+                serviceUri: effectiveUri,
+                timestamp: block.timestamp
+            })
+        );
+
+        _repairDetails[productId][repairId] = RepairDetails({
+            partsReplaced: partsReplaced,
+            cost: costOptional
+        });
+
+        emit RepairLogged(
+            productId,
+            msg.sender,
+            description,
+            partsReplaced,
+            costOptional,
+            effectiveUri,
+            block.timestamp
+        );
+
+        emit RepairRecordAdded(
+            productId,
+            repairId,
+            msg.sender,
+            effectiveType,
+            description,
+            effectiveUri,
+            block.timestamp
+        );
+
+        return repairId;
+    }
+
+    /**
+     * @notice Logs a service or repair record by product ID (token ID).
+     * @dev Restricted to accounts holding REPAIR_CENTER_ROLE. Blocked when contract is paused.
+     */
+    function logRepair(
+        uint256 productId,
+        string calldata description,
+        string calldata partsReplaced,
+        uint256 costOptional,
+        string calldata ipfsHash
+    ) external onlyRole(REPAIR_CENTER_ROLE) whenNotPaused returns (uint256) {
+        return _logRepairInternal(productId, "Maintenance", description, partsReplaced, costOptional, ipfsHash);
+    }
+
+    /**
+     * @notice Logs a service or repair record with a specific repair type by product ID.
+     */
+    function logRepair(
+        uint256 productId,
+        string calldata repairType,
+        string calldata description,
+        string calldata partsReplaced,
+        uint256 costOptional,
+        string calldata ipfsHash
+    ) external onlyRole(REPAIR_CENTER_ROLE) whenNotPaused returns (uint256) {
+        return _logRepairInternal(productId, repairType, description, partsReplaced, costOptional, ipfsHash);
+    }
+
+    /**
+     * @notice Logs a service or repair record by physical serial number.
+     */
+    function logRepair(
+        string calldata serialNumber,
+        string calldata description,
+        string calldata partsReplaced,
+        uint256 costOptional,
+        string calldata ipfsHash
+    ) external onlyRole(REPAIR_CENTER_ROLE) whenNotPaused returns (uint256) {
+        if (!_serialNumberExists[serialNumber]) {
+            revert ReLife__ProductNotFound(0);
+        }
+        uint256 productId = _serialToProductId[serialNumber];
+        return _logRepairInternal(productId, "Maintenance", description, partsReplaced, costOptional, ipfsHash);
+    }
+
+    /**
+     * @notice Logs a service or repair record with a specific repair type by physical serial number.
+     */
+    function logRepair(
+        string calldata serialNumber,
+        string calldata repairType,
+        string calldata description,
+        string calldata partsReplaced,
+        uint256 costOptional,
+        string calldata ipfsHash
+    ) external onlyRole(REPAIR_CENTER_ROLE) whenNotPaused returns (uint256) {
+        if (!_serialNumberExists[serialNumber]) {
+            revert ReLife__ProductNotFound(0);
+        }
+        uint256 productId = _serialToProductId[serialNumber];
+        return _logRepairInternal(productId, repairType, description, partsReplaced, costOptional, ipfsHash);
+    }
+
     // -------------------------------------------------------------
     // CIRCULAR RECYCLING & DECOMMISSIONING (RECYCLER ONLY)
     // -------------------------------------------------------------
@@ -1165,11 +1303,51 @@ contract ReLife is AccessControl, Pausable {
      */
     function getProductHistory(
         uint256 productId
-    ) external view returns (RepairRecord[] memory) {
+    ) public view returns (RepairRecord[] memory) {
         if (productId == 0 || productId > _productIdCounter) {
             revert ReLife__ProductNotFound(productId);
         }
         return _productRepairs[productId];
+    }
+
+    /**
+     * @notice Returns all repair records for a product (alias for getProductHistory).
+     * @param productId The product ID to query.
+     */
+    function getRepairs(
+        uint256 productId
+    ) external view returns (RepairRecord[] memory) {
+        return getProductHistory(productId);
+    }
+
+    /**
+     * @notice Returns all repair records for a product by its physical serial number.
+     * @param serialNumber The unique physical serial number.
+     */
+    function getRepairsBySerial(
+        string calldata serialNumber
+    ) external view returns (RepairRecord[] memory) {
+        if (!_serialNumberExists[serialNumber]) {
+            revert ReLife__ProductNotFound(0);
+        }
+        uint256 productId = _serialToProductId[serialNumber];
+        return _productRepairs[productId];
+    }
+
+    /**
+     * @notice Returns detailed parts replaced and cost for a specific repair record.
+     * @param productId The product ID.
+     * @param repairId The 1-based sequential repair ID.
+     */
+    function getRepairDetails(
+        uint256 productId,
+        uint256 repairId
+    ) external view returns (string memory partsReplaced, uint256 cost) {
+        if (productId == 0 || productId > _productIdCounter) {
+            revert ReLife__ProductNotFound(productId);
+        }
+        RepairDetails memory d = _repairDetails[productId][repairId];
+        return (d.partsReplaced, d.cost);
     }
 
     /**

@@ -91,6 +91,7 @@
         <ul class="nav-links">
           <li><a href="index.html" class="nav-link">Home</a></li>
           <li><a href="manufacturer.html" class="nav-link">Manufacturer</a></li>
+          <li><a href="repair.html" class="nav-link">Repair Center</a></li>
           <li><a href="owner.html" class="nav-link">Owner Dashboard</a></li>
           <li><a href="recycler.html" class="nav-link">Recycler Portal</a></li>
           <li><a href="product.html" class="nav-link">Verify Product</a></li>
@@ -228,6 +229,17 @@
                 Register Repair Center
               </button>
             </form>
+
+            <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px dashed var(--dark-border);">
+              <label style="font-size: 0.8rem; color: var(--text-muted); display: block; margin-bottom: 0.3rem;">Verify Existing Repair Center Status:</label>
+              <div style="display: flex; gap: 0.5rem;">
+                <input type="text" id="checkRepairAddress" placeholder="0x..." style="font-size: 0.8rem; padding: 0.4rem 0.6rem; flex: 1;">
+                <button type="button" id="btnCheckRepairRole" class="btn btn-secondary" style="font-size: 0.8rem; padding: 0.4rem 0.8rem; white-space: nowrap;">
+                  Check Role
+                </button>
+              </div>
+              <div id="checkRepairRoleResult" style="margin-top: 0.4rem; font-size: 0.8rem; display: none;"></div>
+            </div>
           </div>
         </div>
 

@@ -108,7 +108,7 @@ describe("Phase 5: Frontend Core & Role-Based UI Verification", function () {
   });
 
   it("should have zero JavaScript syntax errors in manufacturer.js and all frontend scripts", function () {
-    const scripts = ["js/manufacturer.js", "js/wallet.js", "js/admin.js", "js/owner.js", "js/recycler.js", "js/product.js"];
+    const scripts = ["js/manufacturer.js", "js/wallet.js", "js/admin.js", "js/owner.js", "js/recycler.js", "js/product.js", "js/repair.js"];
     for (const relPath of scripts) {
       const fullPath = path.join(frontendDir, relPath);
       const code = fs.readFileSync(fullPath, "utf8");

@@ -245,6 +245,36 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   });
 
+  // Check Repair Role Helper
+  const btnCheckRepairRole = document.getElementById("btnCheckRepairRole");
+  const checkRepairAddress = document.getElementById("checkRepairAddress");
+  const checkRepairRoleResult = document.getElementById("checkRepairRoleResult");
+
+  if (btnCheckRepairRole && checkRepairAddress && checkRepairRoleResult) {
+    btnCheckRepairRole.addEventListener("click", async () => {
+      const addr = checkRepairAddress.value.trim();
+      if (!addr || !ethers.isAddress(addr)) {
+        checkRepairRoleResult.style.display = "block";
+        checkRepairRoleResult.innerHTML = `<span style="color: var(--danger);">&#10005; Invalid Ethereum address format.</span>`;
+        return;
+      }
+      try {
+        const contract = ReLifeWallet.contract || ReLifeWallet.getReadOnlyContract();
+        const role = await contract.REPAIR_CENTER_ROLE();
+        const has = await contract.hasRole(role, addr);
+        checkRepairRoleResult.style.display = "block";
+        if (has) {
+          checkRepairRoleResult.innerHTML = `<span style="color: var(--success);">&#10003; <strong>Authorized:</strong> This wallet possesses <code>REPAIR_CENTER_ROLE</code>.</span>`;
+        } else {
+          checkRepairRoleResult.innerHTML = `<span style="color: var(--warning);">&#9888; <strong>Not Authorized:</strong> This wallet does not hold <code>REPAIR_CENTER_ROLE</code>.</span>`;
+        }
+      } catch (e) {
+        checkRepairRoleResult.style.display = "block";
+        checkRepairRoleResult.innerHTML = `<span style="color: var(--danger);">Error checking role: ${e.message}</span>`;
+      }
+    });
+  }
+
   // -------------------------------------------------------------
   // FORM 3: REGISTER RECYCLER
   // -------------------------------------------------------------

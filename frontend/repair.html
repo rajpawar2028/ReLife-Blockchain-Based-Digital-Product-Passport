@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReLife - Repair Center Portal</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <style>
+    .repair-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+    }
+    .preview-box {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--dark-border);
+      border-radius: var(--radius-md);
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.5rem;
+      display: none;
+    }
+    .preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 1rem;
+      margin-top: 0.5rem;
+    }
+    .preview-item label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 0.2rem;
+    }
+    .preview-item div {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+    .table-container {
+      overflow-x: auto;
+      margin-top: 1rem;
+    }
+    .btn-lookup {
+      padding: 0.6rem 1.25rem;
+      font-size: 0.85rem;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <a href="index.html" class="logo-area">
+        <div class="logo-icon">&#9851;</div>
+        <span class="logo-text">ReLife</span>
+        <span class="logo-tag">Passport</span>
+      </a>
+
+      <nav>
+        <ul class="nav-links">
+          <li><a href="index.html" class="nav-link">Home</a></li>
+          <li><a href="manufacturer.html" class="nav-link">Manufacturer</a></li>
+          <li><a href="repair.html" class="nav-link active">Repair Center</a></li>
+          <li><a href="owner.html" class="nav-link">Owner Dashboard</a></li>
+          <li><a href="recycler.html" class="nav-link">Recycler Portal</a></li>
+          <li><a href="product.html" class="nav-link">Verify Product</a></li>
+          <li><a href="admin.html" class="nav-link">Admin Portal</a></li>
+        </ul>
+      </nav>
+
+      <div class="wallet-section">
+        <div id="walletBadge">
+          <span class="badge badge-warning">Disconnected</span>
+        </div>
+        <button id="connectWalletBtn" class="btn btn-primary">Connect Wallet</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Global Circuit Breaker Emergency Banner -->
+  <div id="pauseBanner" class="alert alert-danger" style="display: none; border-radius: 0; text-align: center; margin: 0; padding: 0.75rem 1rem;">
+    <strong>&#9888; EMERGENCY CIRCUIT BREAKER ACTIVE:</strong> The ReLife smart contract is currently paused by the administrator. All repair logging transactions are temporarily frozen.
+  </div>
+
+  <!-- Main Container -->
+  <main class="main-content">
+    <div class="page-header">
+      <h1 class="page-title">&#128295; Repair Center Portal</h1>
+      <p class="page-subtitle">Log certified service records, replaced components, and maintenance reports on Ethereum.</p>
+    </div>
+
+    <!-- Wrong Network Alert -->
+    <div id="wrongNetworkAlert" class="alert alert-warning" style="display: none; margin-bottom: 1.5rem;">
+      <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+        <div>
+          <strong>Wrong Network:</strong> Please switch your wallet to <span id="targetNetworkName">Ethereum Sepolia</span> (Chain ID: 11155111).
+        </div>
+        <button id="btnSwitchNetwork" class="btn btn-primary" style="padding: 0.4rem 1rem; font-size: 0.85rem;">
+          Switch Network
+        </button>
+      </div>
+    </div>
+
+    <!-- State 1: Wallet Disconnected -->
+    <div id="authSection" class="card" style="text-align: center; padding: 3rem 1.5rem;">
+      <h2 style="margin-bottom: 0.75rem;">Connect Certified Repair Center Wallet</h2>
+      <p style="color: var(--text-muted); max-width: 540px; margin: 0 auto 1.5rem auto;">
+        To log immutable maintenance records, component replacements, and diagnostic proofs, connect a certified facility wallet authorized with <code>REPAIR_CENTER_ROLE</code>.
+      </p>
+      <button onclick="document.getElementById('connectWalletBtn').click()" class="btn btn-primary" style="padding: 0.75rem 2rem;">
+        Connect MetaMask
+      </button>
+    </div>
+
+    <!-- State 2: Unauthorized Alert -->
+    <div id="unauthorizedAlert" class="alert alert-danger" style="display: none; margin-bottom: 1.5rem;">
+      <div>
+        <h3 style="margin-bottom: 0.5rem; font-size: 1.1rem;">&#128683; Access Denied: Certified Repair Center Role Required</h3>
+        <p style="margin-bottom: 0.5rem;">
+          Your connected wallet (<code id="unauthorizedAddress">0x...</code>) does not hold the <code>REPAIR_CENTER_ROLE</code> on-chain.
+        </p>
+        <p style="color: #cbd5e1; font-size: 0.9rem;">
+          Please ask the ReLife Admin to grant your facility wallet authorization in the <a href="admin.html" style="color: var(--secondary); text-decoration: underline;">Admin Portal</a>.
+        </p>
+      </div>
+    </div>
+
+    <!-- Status Alert Card -->
+    <div id="txStatusCard" class="alert" style="display: none; margin-bottom: 1.5rem;">
+      <span id="txStatusMessage"></span>
+    </div>
+
+    <!-- State 3: Authorized Repair Section -->
+    <div id="repairSection" style="display: none;">
+      <!-- Repair Logging Form Card -->
+      <div class="card" style="margin-bottom: 2rem;">
+        <div class="card-header">
+          <h2 class="card-title">&#128295; Log Service / Maintenance Record</h2>
+          <span class="badge badge-success">&#10003; Certified Facility Active</span>
+        </div>
+
+        <form id="repairForm">
+          <div class="form-grid">
+            <!-- Product ID or Serial Lookup -->
+            <div class="form-group full-width">
+              <label for="repairProductInput">Product Serial Number or Token ID <span class="required">*</span></label>
+              <div style="display: flex; gap: 0.75rem;">
+                <input type="text" id="repairProductInput" placeholder="e.g. SN-892147 or Token ID 1" required style="flex: 1;">
+                <button type="button" id="btnLookupProduct" class="btn btn-secondary btn-lookup">&#128269; Verify Product</button>
+              </div>
+              <span class="input-hint">Enter either the on-chain numeric Token ID or the etched physical Serial Number.</span>
+            </div>
+
+            <!-- Product Details Preview Box -->
+            <div id="productPreviewBox" class="preview-box full-width">
+              <div style="display:flex; justify-content:space-between; align-items:center; border-bottom: 1px solid var(--dark-border); padding-bottom: 0.5rem; margin-bottom: 0.5rem;">
+                <span style="font-weight: 700; color: var(--secondary); font-size: 0.9rem;">&#128241; Verified Product Passport</span>
+                <span id="previewStatusBadge" class="badge badge-info">Active</span>
+              </div>
+              <div class="preview-grid">
+                <div class="preview-item">
+                  <label>Product Model</label>
+                  <div id="previewModel">-</div>
+                </div>
+                <div class="preview-item">
+                  <label>Brand</label>
+                  <div id="previewBrand">-</div>
+                </div>
+                <div class="preview-item">
+                  <label>Serial Number</label>
+                  <div id="previewSerial">-</div>
+                </div>
+                <div class="preview-item">
+                  <label>Current Owner</label>
+                  <div id="previewOwner" style="font-family: monospace; font-size: 0.85rem;">-</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Repair Type Dropdown -->
+            <div class="form-group">
+              <label for="repairType">Service / Repair Type <span class="required">*</span></label>
+              <select id="repairType" required>
+                <option value="Screen Replacement">Screen / Display Replacement</option>
+                <option value="Battery Service">Battery Replacement &amp; Calibration</option>
+                <option value="Motherboard Service">Motherboard / Logic Board Repair</option>
+                <option value="Thermal Management">Thermal Paste &amp; Fan Replacement</option>
+                <option value="Port & Connector">Port &amp; Charging Interface Fix</option>
+                <option value="Firmware & Calibration">Firmware Update &amp; Sensor Calibration</option>
+                <option value="Preventative Maintenance">Preventative Maintenance &amp; Cleaning</option>
+                <option value="Other Maintenance">Other Certified Service</option>
+              </select>
+            </div>
+
+            <!-- Cost Input (Optional) -->
+            <div class="form-group">
+              <label for="repairCost">Repair Cost ($ USD / Units) <span style="color: var(--text-muted); font-size: 0.8rem;">(Optional)</span></label>
+              <input type="number" id="repairCost" min="0" step="1" placeholder="e.g. 150">
+              <span class="input-hint">Optional service or parts cost for customer warranty accounting.</span>
+            </div>
+
+            <!-- Description (Required) -->
+            <div class="form-group full-width">
+              <label for="repairDescription">Technical Diagnostics &amp; Service Summary <span class="required">*</span></label>
+              <textarea id="repairDescription" rows="3" placeholder="Detailed technical report of diagnostics performed, faults identified, and repair operations executed." required></textarea>
+            </div>
+
+            <!-- Parts Replaced (Comma-separated) -->
+            <div class="form-group full-width">
+              <label for="partsReplaced">Parts &amp; Components Replaced <span class="required">*</span></label>
+              <input type="text" id="partsReplaced" placeholder="e.g. OEM 14-inch OLED Panel, Titanium Hinge Bracket, Adhesive Seal" required>
+              <span class="input-hint">Comma-separated list of genuine components replaced during service.</span>
+            </div>
+
+            <!-- Attachment File (Optional IPFS) -->
+            <div class="form-group full-width">
+              <label for="repairFile">Diagnostic Report / Receipt / Component Proof <span style="color: var(--text-muted); font-size: 0.8rem;">(Optional IPFS Upload)</span></label>
+              <input type="file" id="repairFile" accept="application/pdf,image/*">
+              <span class="input-hint">Securely pinned to Pinata IPFS and permanently linked to the service record on Ethereum.</span>
+            </div>
+          </div>
+
+          <div style="margin-top: 1.75rem; display: flex; align-items: center; gap: 1rem;">
+            <button type="submit" id="submitRepairBtn" class="btn btn-primary" style="padding: 0.75rem 2rem;">
+              <span id="repairSpinner" class="spinner" style="display: none;"></span>
+              Log Service Record On-Chain
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- History Table for Looked-up Product -->
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">&#128340; Verifiable Service History for This Product</h2>
+          <span id="repairCountBadge" class="badge badge-info">0 Records</span>
+        </div>
+
+        <div id="noRepairsMsg" style="color: var(--text-muted); padding: 1.5rem 0; text-align: center;">
+          Enter a Product Serial Number or Token ID above and click "Verify Product" to inspect its complete on-chain maintenance pedigree.
+        </div>
+
+        <div id="tableWrapper" class="table-container" style="display: none;">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Date</th>
+                <th>Facility</th>
+                <th>Service Type</th>
+                <th>Technical Summary</th>
+                <th>Parts Replaced</th>
+                <th>Cost</th>
+                <th>Diagnostic Proof</th>
+              </tr>
+            </thead>
+            <tbody id="repairsTableBody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <p>ReLife DPP &copy; 2026 &mdash; Built on Ethereum Sepolia, Hardhat, Ethers.js &amp; Pinata IPFS</p>
+  </footer>
+
+  <!-- Scripts -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js"></script>
+  <script src="contract-data.js"></script>
+  <script src="js/wallet.js"></script>
+  <script src="js/repair.js"></script>
+</body>
+</html>
