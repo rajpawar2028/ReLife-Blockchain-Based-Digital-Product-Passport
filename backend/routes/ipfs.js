@@ -297,11 +297,20 @@ router.post("/upload-metadata", async (req, res, next) => {
       createdAt: new Date().toISOString(),
     };
 
-    // Upload to Pinata IPFS
-    const pinResult = await pinataService.pinJSONToIPFS(
-      passportMetadata,
-      `DPP-${serialNumber.trim()}-${name.trim()}`
-    );
+    // Upload to Pinata IPFS with explicit error handling and 502 status
+    let pinResult;
+    try {
+      pinResult = await pinataService.pinJSONToIPFS(
+        passportMetadata,
+        `DPP-${serialNumber.trim()}-${name.trim()}`
+      );
+    } catch (pinErr) {
+      return res.status(pinErr.statusCode || 502).json({
+        success: false,
+        error: "Pinata IPFS upload failed",
+        details: pinErr.details || pinErr.message,
+      });
+    }
 
     return res.status(200).json({
       success: true,
@@ -375,11 +384,20 @@ router.post("/upload-file", (req, res, next) => {
       const safeExt = originalExt || (detectedType === "image/png" ? ".png" : detectedType === "image/jpeg" ? ".jpg" : detectedType === "application/pdf" ? ".pdf" : ".bin");
       const randomFilename = `${crypto.randomUUID()}${safeExt}`;
 
-      const pinResult = await pinataService.pinFileToIPFS(
-        req.file.buffer,
-        randomFilename,
-        req.file.mimetype
-      );
+      let pinResult;
+      try {
+        pinResult = await pinataService.pinFileToIPFS(
+          req.file.buffer,
+          randomFilename,
+          req.file.mimetype
+        );
+      } catch (pinErr) {
+        return res.status(pinErr.statusCode || 502).json({
+          success: false,
+          error: "Pinata file upload failed",
+          details: pinErr.details || pinErr.message,
+        });
+      }
 
       return res.status(200).json({
         success: true,

@@ -16,9 +16,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   const txStatusCard = document.getElementById("txStatusCard");
   const txStatusMessage = document.getElementById("txStatusMessage");
 
-  const API_BASE = window.location.origin.includes("5000")
-    ? window.location.origin
-    : "http://localhost:5000";
+  const API_BASE = ReLifeWallet.getApiBase();
 
   let userAccount = null;
   let isRecycler = false;

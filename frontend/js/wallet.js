@@ -191,6 +191,22 @@ const ReLifeWallet = {
   },
 
   /**
+   * Resolves the single centralized API base URL for backend communication.
+   * Prioritizes window.RELIFE_CONFIG.apiBase or current origin on port 5000.
+   */
+  getApiBase() {
+    if (typeof window !== "undefined" && window.RELIFE_CONFIG && window.RELIFE_CONFIG.apiBase) {
+      return window.RELIFE_CONFIG.apiBase;
+    }
+    if (typeof window !== "undefined" && window.location && window.location.origin) {
+      return window.location.origin.includes("5000")
+        ? window.location.origin
+        : "http://localhost:5000";
+    }
+    return "http://localhost:5000";
+  },
+
+  /**
    * Requests network switch to Sepolia or Localhost if needed.
    */
   async switchToSepolia() {

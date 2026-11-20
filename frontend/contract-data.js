@@ -6,6 +6,7 @@ window.RELIFE_CONFIG = {
   "deployer": "0xd75dC45aEDDa24Bc3d3e92B03D75b828f473530E",
   "deployedAt": "2026-11-19T16:05:03.545Z",
   "deploymentBlock": 12169456,
+  "apiBase": "http://localhost:5000",
   "abi": [
     {
       "inputs": [],

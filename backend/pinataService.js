@@ -11,10 +11,28 @@ require("dotenv").config();
  */
 class PinataService {
   constructor() {
-    this.jwt = process.env.PINATA_JWT || "";
-    this.apiKey = process.env.PINATA_API_KEY || "";
-    this.apiSecret = process.env.PINATA_API_SECRET || "";
-    this.gateway = (process.env.PINATA_GATEWAY || "https://gateway.pinata.cloud/ipfs/").replace(/\/?$/, "/");
+    this.jwt = (process.env.PINATA_JWT || "").trim();
+    this.apiKey = (process.env.PINATA_API_KEY || "").trim();
+    this.apiSecret = (process.env.PINATA_API_SECRET || "").trim();
+
+    // Defensive gateway URL normalization: ensures valid scheme and /ipfs/ path
+    let rawGateway = (process.env.PINATA_GATEWAY || "https://gateway.pinata.cloud/ipfs/").trim();
+    if (!rawGateway.startsWith("http://") && !rawGateway.startsWith("https://")) {
+      rawGateway = "https://" + rawGateway;
+    }
+    if (!rawGateway.endsWith("/ipfs/") && !rawGateway.endsWith("/ipfs")) {
+      rawGateway = rawGateway.replace(/\/?$/, "/ipfs/");
+    } else {
+      rawGateway = rawGateway.replace(/\/?$/, "/");
+    }
+    this.gateway = rawGateway;
+
+    // Fail-fast environment validation if JWT is configured
+    if (this.jwt && this.jwt !== "your_pinata_jwt_here") {
+      if (!process.env.PINATA_GATEWAY || process.env.PINATA_GATEWAY === "https://gateway.pinata.cloud/ipfs/") {
+        console.warn("[Pinata Warning] PINATA_JWT is configured but custom PINATA_GATEWAY is missing; defaulting to public gateway.");
+      }
+    }
 
     // Local simulation storage for offline development & testing
     this.localMockStore = new Map();
@@ -24,6 +42,17 @@ class PinataService {
    * Checks if live Pinata credentials are configured.
    */
   isConfigured() {
+    // During automated test suite runs (Hardhat / Mocha), use deterministic mock store
+    if (
+      process.env.NODE_ENV === "test" ||
+      typeof hre !== "undefined" ||
+      (typeof process !== "undefined" && process.argv && process.argv.includes("test"))
+    ) {
+      if (process.env.TEST_LIVE_PINATA !== "true") {
+        return false;
+      }
+    }
+
     const hasJwt = Boolean(this.jwt && this.jwt !== "your_pinata_jwt_here" && this.jwt.trim().length > 10);
     const hasApiKeys = Boolean(
       this.apiKey &&
@@ -108,8 +137,15 @@ class PinataService {
         timestamp: response.data.Timestamp || new Date().toISOString(),
       };
     } catch (error) {
-      const errMsg = error.response?.data?.error?.details || error.response?.data?.message || error.message;
-      throw new Error(`Pinata pinJSONToIPFS failed: ${errMsg}`);
+      const errMsg =
+        error.response?.data?.error?.details ||
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        error.message;
+      const customErr = new Error(`Pinata pinJSONToIPFS failed: ${errMsg}`);
+      customErr.statusCode = 502;
+      customErr.details = errMsg;
+      throw customErr;
     }
   }
 
@@ -177,8 +213,15 @@ class PinataService {
         timestamp: response.data.Timestamp || new Date().toISOString(),
       };
     } catch (error) {
-      const errMsg = error.response?.data?.error?.details || error.response?.data?.message || error.message;
-      throw new Error(`Pinata pinFileToIPFS failed: ${errMsg}`);
+      const errMsg =
+        error.response?.data?.error?.details ||
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        error.message;
+      const customErr = new Error(`Pinata pinFileToIPFS failed: ${errMsg}`);
+      customErr.statusCode = 502;
+      customErr.details = errMsg;
+      throw customErr;
     }
   }
 }

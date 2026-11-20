@@ -183,6 +183,14 @@
   4. *Authorized*: `#registrationCard` visible with the passport minting form, and paginated product inventory loaded.
 - **Automated Frontend Syntax Verification**: Added automated unit tests in `test/frontend.test.js` compiling every frontend script (`new Function(code)`) during test runs. This guarantees that accidental syntax regressions or orphaned code blocks in frontend JavaScript files are caught immediately during CI/CD.
 
+## Backend IPFS Integration & CORS Resolution
+- **Dynamic Origin Matching for Local Development**: Configured CORS origin validation in `backend/server.js` using a flexible callback that matches explicit ports (`5000`, `5500`, `5501`, `8080`, `3000`) and regular expressions (`^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$`). Set `optionsSuccessStatus: 200` to ensure legacy and modern browsers receive clean preflight `OPTIONS` approvals.
+- **Pinata Upstream Error Classification (HTTP 502 Bad Gateway)**: Upstream failures from external IPFS pinning providers (e.g., Pinata returning 403 Forbidden due to unscoped JWT tokens, network timeouts, or invalid authorization headers) are explicitly caught in `pinataService.js` and `routes/ipfs.js` and mapped to HTTP 502 Bad Gateway with `{ success: false, error: "Pinata IPFS upload failed", details: ... }`. This clearly distinguishes client validation mistakes (HTTP 400) from upstream pinning failures (HTTP 502) and internal server errors (HTTP 500).
+- **Single Source of Truth for API Base URL (`ReLifeWallet.getApiBase()`)**: Eliminated scattered hardcoded `http://localhost:5000` URLs across frontend files. Integrated `apiBase` into `frontend/contract-data.js` and `frontend/contract-data.json` (`RELIFE_CONFIG`), accessed uniformly via `ReLifeWallet.getApiBase()`.
+- **Pre-Transaction IPFS Upload Gate**: Structured the product registration pipeline in `manufacturer.js` and recycling decommissioning in `recycler.js` so on-chain MetaMask transactions (`registerProductWithWarranty` / `addRecyclingRecord`) are only dispatched if and only if the backend IPFS upload succeeds and returns a valid `ipfsUri` (`ipfs://bafy...`). If the backend is unreachable or IPFS fails, execution halts immediately with a clear UI alert and zero user gas wasted.
+- **Offline Test Mock Isolation**: Updated `pinataService.js` to ensure automated test runners (`process.argv.includes("test")` or `process.env.NODE_ENV === "test"`) default to offline mock IPFS storage unless explicitly overridden with `TEST_LIVE_PINATA=true`, ensuring deterministic, fast, zero-dependency CI/CD test runs.
+
+
 
 
 

@@ -1416,6 +1416,71 @@ A well-engineered Web3 dApp manages wallet connections gracefully across three s
 #### Q3: When designing a Web3 frontend, why is it critical to attach DOM click listeners before initializing asynchronous contract state, and how does defensive programming prevent one failing UI widget from breaking wallet connectivity?
 > **Model Answer**: Web3 frontend applications rely on asynchronous network calls (JSON-RPC requests, IPFS fetches, contract view calls) to initialize UI state. If DOM click listeners are placed after an `await` statement for a contract call, any unhandled promise rejection (such as an offline RPC node, an un-deployed contract address, or an unhandled revert) will immediately terminate the async execution flow, preventing the click listener from ever being bound. By binding event listeners immediately upon `DOMContentLoaded` and wrapping contract initialization in structured `try / catch` blocks, the connection button remains permanently operational, and the application can display actionable, friendly error banners on the page rather than failing silently.
 
+---
+
+## Backend Integration, CORS, and Network Error Handling
+
+### 1. What Did We Build & Fix?
+When a frontend connects to a backend API to upload data to IPFS before minting on Ethereum, network requests can fail silently or return cryptic errors. In this debugging milestone, we resolved the dreaded `"Registration failed: Failed to fetch"` error:
+1. **CORS Allowlist & Preflight Handshake**: Enabled preflight `OPTIONS` requests from Live Server (`http://127.0.0.1:5500`) and local development origins by adding regex and port matching with `optionsSuccessStatus: 200`.
+2. **Proper HTTP Status Code Mapping**: Converted upstream Pinata failures (such as missing JWT scopes) into explicit **HTTP 502 Bad Gateway** responses with clear diagnostic messages instead of opaque 500 crashes.
+3. **Centralized Frontend Configuration**: Removed hardcoded URLs and established `ReLifeWallet.getApiBase()` as the single source of truth for backend endpoints.
+4. **Actionable User Alerts**: Replaced generic "Failed to fetch" catch blocks with distinct messages separating "Backend unreachable" from "Pinata upload failed", preventing MetaMask transactions when IPFS is not ready.
+
+---
+
+### 2. New Concepts Explained in Plain English
+
+#### What is CORS (Cross-Origin Resource Sharing)?
+Web browsers have a fundamental security rule called the **Same-Origin Policy (SOP)**. Under SOP, JavaScript code running on one website (e.g. `http://127.0.0.1:5500`) is blocked from making HTTP requests to or reading responses from a different origin (e.g. `http://localhost:5000`). An origin is defined by three things:
+$$\text{Origin} = \text{Protocol (http/https)} + \text{Domain / IP} + \text{Port}$$
+Even though `127.0.0.1` and `localhost` point to the same physical computer, `127.0.0.1:5500` and `localhost:5000` have different ports and domain strings — making them **different origins**!
+
+**CORS** is an HTTP-header mechanism that lets the server give the browser permission to relax the Same-Origin Policy. The server sends back headers like:
+- `Access-Control-Allow-Origin: http://127.0.0.1:5500`
+- `Access-Control-Allow-Methods: GET, POST, OPTIONS`
+- `Access-Control-Allow-Headers: Content-Type, Authorization`
+
+#### What is a Preflight `OPTIONS` Request?
+Before sending complex HTTP requests (like a `POST` with `Content-Type: application/json` or custom headers), the browser sends an automatic preliminary "safety check" request using the HTTP method `OPTIONS`.
+Think of preflight like an advance scout:
+1. **Browser asks**: "Hey `http://localhost:5000`, I'm about to send a POST request with JSON from `http://127.0.0.1:5500`. Do you allow that?"
+2. **Server answers**: If the origin is in the allowlist, the server returns **HTTP 200 OK** (or 204) with the `Access-Control-Allow-*` headers.
+3. **Browser proceeds**: Only after receiving the green light does the browser send the actual `POST` request with your data.
+
+If the server responds to `OPTIONS` with a 403 Forbidden or omits the `Access-Control-Allow-Origin` header, the browser **cancels the entire request immediately**.
+
+#### Why Does the Browser Say "TypeError: Failed to fetch"?
+When an HTTP request fails because of:
+1. A server that is turned off / offline (connection refused),
+2. A typo in the port or IP address (DNS or connection timeout), or
+3. A browser security block like **CORS preflight rejection**,
+
+the browser deliberately **does NOT expose the underlying network error details to JavaScript**. Due to browser privacy and security standards, `fetch()` simply rejects its Promise with:
+```javascript
+TypeError: Failed to fetch
+```
+JavaScript cannot tell from `err.message` alone whether the server was down or CORS blocked it. That is why checking the backend health endpoint (`GET /api/health`) or testing with `curl` in the terminal reveals what the browser conceals.
+
+#### Understanding HTTP Status Codes: 400 vs 500 vs 502
+- **HTTP 400 (Bad Request)**: The client sent invalid data (e.g. missing product name, negative warranty period, invalid serial number format). The server is healthy, but the client made a mistake.
+- **HTTP 500 (Internal Server Error)**: The server's own code threw an unexpected exception (e.g. `ReferenceError`, unhandled null pointer). The server itself is buggy.
+- **HTTP 502 (Bad Gateway)**: The server was acting as a proxy or intermediary to another service (like Pinata Cloud IPFS) and received an invalid or failed response from that upstream service (e.g. Pinata returned 403 Invalid Scopes or timed out). This tells developers: "Our Express server is working, but the upstream cloud service it talks to failed!"
+
+---
+
+### 3. Three Viva / Interview Questions You Should Be Able to Answer
+
+#### Q1: What is a CORS preflight request, under what conditions does the browser trigger it, and what happens if the server does not handle the `OPTIONS` method correctly?
+> **Model Answer**: A CORS preflight is an automatic HTTP `OPTIONS` request sent by the browser before the actual request to verify that the server permits cross-origin communication from the client's origin. It is triggered whenever an HTTP request is not a "simple request" — for example, if it uses HTTP methods other than GET/POST/HEAD, sends a `Content-Type` header other than form-urlencoded, multipart, or plain text (such as `application/json`), or includes custom headers. If the server does not handle `OPTIONS` requests, rejects them with a 403/404, or omits the `Access-Control-Allow-Origin` header in the preflight response, the browser immediately blocks the actual request, discards it before transmission, and rejects the client-side JavaScript `fetch()` Promise with `TypeError: Failed to fetch`.
+
+#### Q2: In a Web3 architecture where product metadata is stored on IPFS and the metadata URI is anchored on Ethereum, why must the IPFS upload complete successfully BEFORE prompting the user's MetaMask wallet for a transaction?
+> **Model Answer**: Smart contract state transitions on Ethereum are immutable and cost non-refundable gas fees paid by the user. If a dApp prompts MetaMask and executes the on-chain minting transaction before verifying that the off-chain IPFS upload succeeded, any subsequent IPFS failure (such as rate limits, missing API keys, or network disconnects) leaves an irreversible "zombie" or broken record on the blockchain with an invalid or empty `metadataURI`. By strictly sequencing the pipeline — requiring a verified `ipfs://bafy...` cryptographic CID from the backend upload API before initiating `contract.registerProduct(...)` — the dApp ensures that user funds are never wasted on broken blockchain transactions and guarantees data integrity between off-chain IPFS storage and on-chain state.
+
+#### Q3: Why is returning an HTTP 502 Bad Gateway preferable to an HTTP 500 Internal Server Error when Pinata IPFS rejects an upload due to an expired or unscoped JWT key?
+> **Model Answer**: In HTTP semantics (RFC 7231), HTTP 500 signifies an unhandled exception or bug inside the server application's own internal execution environment. In contrast, HTTP 502 Bad Gateway specifically denotes that the server, while acting as a gateway or proxy, received an invalid response from an upstream server. When Pinata rejects a request due to invalid JWT credentials or missing IPFS pinning scopes, our Express server is operating correctly; the failure originates from the third-party upstream API. Returning HTTP 502 with structured diagnostic details (`details: "This key does not have the required scopes"`) enables frontend logging, automated monitoring, and developers to immediately pinpoint the root cause (an upstream authentication issue) rather than hunting for a non-existent bug in the Express backend code.
+
+
 
 
 

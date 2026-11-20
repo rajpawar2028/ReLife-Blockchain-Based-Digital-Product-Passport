@@ -37,6 +37,12 @@ const allowedOrigins = [
   "http://127.0.0.1:5000",
   "http://localhost:3000",
   "http://127.0.0.1:3000",
+  "http://localhost:5500",
+  "http://127.0.0.1:5500",
+  "http://localhost:5501",
+  "http://127.0.0.1:5501",
+  "http://localhost:8080",
+  "http://127.0.0.1:8080",
 ];
 if (process.env.FRONTEND_URL) {
   allowedOrigins.push(process.env.FRONTEND_URL.replace(/\/+$/, ""));
@@ -45,15 +51,25 @@ if (process.env.FRONTEND_URL) {
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (e.g. curl, server-to-server, or same-origin static serving)
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    // Allow configured origins or any localhost/127.0.0.1 port during local development
+    const isAllowed =
+      allowedOrigins.includes(origin) ||
+      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+
+    if (isAllowed) {
       callback(null, true);
     } else {
-      callback(new Error("CORS policy violation: Access from this origin is not allowed."));
+      callback(new Error(`CORS policy violation: Access from origin ${origin} is not allowed.`));
     }
   },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Simulated-IP", "X-Skip-Rate-Limit"],
   credentials: true,
+  optionsSuccessStatus: 200, // Preflight OPTIONS response for legacy browsers
 };
 app.use(cors(corsOptions));
 
@@ -105,6 +121,7 @@ app.use(express.static(path.join(__dirname, "..", "frontend")));
 // Health check and environment diagnostic endpoint
 app.get("/api/health", generalApiLimiter, (req, res) => {
   res.status(200).json({
+    ok: true,
     status: "healthy",
     service: "ReLife IPFS Backend API",
     version: "1.0.0",
@@ -136,6 +153,15 @@ app.use((err, req, res, next) => {
     return res.status(403).json({
       success: false,
       error: "CORS policy violation: Access from this origin is not allowed.",
+    });
+  }
+
+  // Upstream Pinata service errors (status 502 Bad Gateway)
+  if (err.statusCode === 502 || (err.message && err.message.includes("Pinata"))) {
+    return res.status(502).json({
+      success: false,
+      error: "Pinata IPFS error",
+      details: err.details || err.message,
     });
   }
 

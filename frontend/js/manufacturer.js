@@ -30,9 +30,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   let pageSize = 10;
   let totalManufacturerProducts = 0;
 
-  const API_BASE = window.location.origin.includes("5000")
-    ? window.location.origin
-    : "http://localhost:5000";
+  // Centralized API Base URL resolved from shared ReLifeWallet module
+  const API_BASE = ReLifeWallet.getApiBase();
 
   let userAccount = null;
   let isManufacturer = false;
@@ -245,18 +244,28 @@ document.addEventListener("DOMContentLoaded", async () => {
         const formData = new FormData();
         formData.append("file", fileInput.files[0]);
 
-        const fileRes = await fetch(`${API_BASE}/api/ipfs/upload-file`, {
-          method: "POST",
-          body: formData,
-        });
-
-        if (!fileRes.ok) {
-          const errData = await fileRes.json();
-          throw new Error(errData.error || "File upload to IPFS failed.");
+        let fileRes;
+        try {
+          fileRes = await fetch(`${API_BASE}/api/ipfs/upload-file`, {
+            method: "POST",
+            body: formData,
+          });
+        } catch (fetchErr) {
+          throw new Error(
+            `Backend API unreachable at ${API_BASE}. Please verify that the Express backend is running on port 5000 and CORS is permitted.`
+          );
         }
 
-        const fileData = await fileRes.json();
+        const fileData = await fileRes.json().catch(() => ({}));
+        if (!fileRes.ok) {
+          const errMsg = fileData.details || fileData.error || `File upload failed with status ${fileRes.status}`;
+          throw new Error(errMsg);
+        }
+
         imageUri = fileData.ipfsUri;
+        if (!imageUri) {
+          throw new Error("File upload succeeded but no IPFS URI was returned by the backend.");
+        }
       }
 
       // 2. Upload structured DPP metadata JSON to IPFS
@@ -278,19 +287,31 @@ document.addEventListener("DOMContentLoaded", async () => {
         warrantyUnit: unitVal,
       };
 
-      const metaRes = await fetch(`${API_BASE}/api/ipfs/upload-metadata`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(metadataPayload),
-      });
-
-      if (!metaRes.ok) {
-        const errData = await metaRes.json();
-        throw new Error(errData.details ? errData.details.join(", ") : errData.error);
+      let metaRes;
+      try {
+        metaRes = await fetch(`${API_BASE}/api/ipfs/upload-metadata`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(metadataPayload),
+        });
+      } catch (fetchErr) {
+        throw new Error(
+          `Backend API unreachable at ${API_BASE}. Please verify that the Express backend is running on port 5000 and CORS is permitted.`
+        );
       }
 
-      const metaResult = await metaRes.json();
+      const metaResult = await metaRes.json().catch(() => ({}));
+      if (!metaRes.ok) {
+        const errorDetail = Array.isArray(metaResult.details)
+          ? metaResult.details.join(", ")
+          : (metaResult.details || metaResult.error || `Upload failed with status ${metaRes.status}`);
+        throw new Error(errorDetail);
+      }
+
       const metadataURI = metaResult.ipfsUri;
+      if (!metadataURI || typeof metadataURI !== "string" || !metadataURI.startsWith("ipfs://")) {
+        throw new Error("Metadata upload failed: Backend returned an invalid or missing IPFS URI.");
+      }
       console.log("Metadata pinned to IPFS:", metadataURI);
 
       // 3. Generate off-chain cryptographic authenticity secret & on-chain hash
@@ -309,7 +330,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         console.warn("Could not fetch authenticity secret from backend:", secErr);
       }
 
-      // 4. Submit transaction on-chain via MetaMask
+      // 4. Submit transaction on-chain via MetaMask (ONLY reached if upload succeeded!)
       showStatus("info", "Step 4/4: Please confirm the transaction in MetaMask...");
 
       const contract = ReLifeWallet.contract;

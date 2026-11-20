@@ -62,6 +62,7 @@ async function main() {
     deployer: deployer.address,
     deployedAt: new Date().toISOString(),
     deploymentBlock: deploymentBlock,
+    apiBase: "http://localhost:5000",
     abi: artifact.abi,
   };
 
