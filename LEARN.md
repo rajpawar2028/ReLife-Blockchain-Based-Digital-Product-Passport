@@ -1489,7 +1489,7 @@ In decentralized applications, ensuring the user is connected to the correct Eth
 1. **The Undefined Property Trap**: In JavaScript, querying an un-instantiated property (e.g. `ReLifeWallet.isCorrectNetwork`) returns `undefined`. Negating it (`!undefined`) evaluates to `true`, causing the "Wrong Network" banner to appear permanently whenever a wallet is connected.
 2. **Chain ID Type Normalization**: Standardized how chain IDs are parsed. MetaMask RPC returns `"0xaa36a7"` (hex string), Ethers v6 returns `11155111n` (BigInt), and JSON configs store `11155111` (Number). We centralized normalization inside `ReLifeWallet.getNormalizedChainId()`.
 3. **Live Network Reactivity**: Updated `chainChanged` and `accountChanged` listeners so changing networks in MetaMask updates the banner immediately without forcing a jarring `window.location.reload()`.
-4. **Cache-Busting for Vercel**: Appended `?v=1.1.0` to frontend `<script>` tags to prevent stale edge CDN caching from serving outdated scripts.
+4. **Cache-Busting for Vercel**: Appended `?v=1795272936739` to frontend `<script>` tags to prevent stale edge CDN caching from serving outdated scripts.
 
 ---
 
