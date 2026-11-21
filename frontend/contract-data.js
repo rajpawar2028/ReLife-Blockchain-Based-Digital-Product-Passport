@@ -1,4 +1,23 @@
-// Auto-generated
+// Auto-generated configuration with Render backend URL integration
+/**
+ * --------------------------------------------------------------------------
+ * RENDER BACKEND CONFIGURATION
+ * --------------------------------------------------------------------------
+ * Paste your deployed Render Web Service URL below (e.g. "https://your-backend.onrender.com").
+ * - In production (e.g. Vercel), the frontend calls this Render backend URL.
+ * - On localhost / 127.0.0.1, the frontend automatically routes to http://localhost:5000.
+ */
+const RENDER_BACKEND_URL = "https://relife-blockchain-backend.onrender.com"; // <-- PASTE YOUR RENDER URL HERE
+
+const isLocalhostHost = typeof window !== "undefined" && window.location &&
+  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+
+const API_BASE_URL = isLocalhostHost
+  ? (window.location.origin.includes("5000") ? window.location.origin : "http://localhost:5000")
+  : (RENDER_BACKEND_URL || "http://localhost:5000");
+
+window.API_BASE_URL = API_BASE_URL;
+
 window.RELIFE_CONFIG = {
   "network": "sepolia",
   "chainId": 11155111,
@@ -6,7 +25,7 @@ window.RELIFE_CONFIG = {
   "deployer": "0xd75dC45aEDDa24Bc3d3e92B03D75b828f473530E",
   "deployedAt": "2026-11-19T16:05:03.545Z",
   "deploymentBlock": 12169456,
-  "apiBase": "http://localhost:5000",
+  "apiBase": API_BASE_URL,
   "abi": [
     {
       "inputs": [],

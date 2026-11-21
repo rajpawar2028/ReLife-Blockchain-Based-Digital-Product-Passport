@@ -34,7 +34,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const repairsTableBody = document.getElementById("repairsTableBody");
   const repairCountBadge = document.getElementById("repairCountBadge");
 
-  const API_BASE = ReLifeWallet.getApiBase();
+  const API_BASE = (typeof ReLifeWallet !== "undefined" && ReLifeWallet.getApiBase)
+    ? ReLifeWallet.getApiBase()
+    : (window.API_BASE_URL || window.RELIFE_CONFIG?.apiBase || "http://localhost:5000");
 
   let userAccount = null;
   let isRepairCenter = false;

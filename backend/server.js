@@ -33,6 +33,7 @@ app.use(
 // 2. CORS ALLOWLIST CONFIGURATION
 // -------------------------------------------------------------
 const allowedOrigins = [
+  "https://relife-blockchain-based-digital-pro.vercel.app",
   "http://localhost:5000",
   "http://127.0.0.1:5000",
   "http://localhost:3000",
@@ -55,10 +56,11 @@ const corsOptions = {
       return callback(null, true);
     }
 
-    // Allow configured origins or any localhost/127.0.0.1 port during local development
+    // Allow configured origins, any localhost/127.0.0.1 port, or Vercel production/preview domains
     const isAllowed =
       allowedOrigins.includes(origin) ||
-      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
+      /^https:\/\/relife-[a-z0-9-]+\.vercel\.app$/.test(origin);
 
     if (isAllowed) {
       callback(null, true);
@@ -118,8 +120,8 @@ app.use(express.static(path.join(__dirname, "..", "frontend")));
 // -------------------------------------------------------------
 // 5. API ROUTES
 // -------------------------------------------------------------
-// Health check and environment diagnostic endpoint
-app.get("/api/health", generalApiLimiter, (req, res) => {
+// Health check and environment diagnostic endpoint (unthrottled for cloud uptime monitors & Render probes)
+app.get("/api/health", (req, res) => {
   res.status(200).json({
     ok: true,
     status: "healthy",
@@ -180,9 +182,28 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start listening if run directly
+// Start listening if run directly (Render or local npm start)
 if (require.main === module) {
-  app.listen(PORT, () => {
+  // Fail fast immediately if required Pinata credentials are not configured
+  const missingEnv = [];
+  if (!process.env.PINATA_JWT || process.env.PINATA_JWT.trim() === "" || process.env.PINATA_JWT === "your_pinata_jwt_here") {
+    missingEnv.push("PINATA_JWT");
+  }
+  if (!process.env.PINATA_GATEWAY || process.env.PINATA_GATEWAY.trim() === "") {
+    missingEnv.push("PINATA_GATEWAY");
+  }
+
+  if (missingEnv.length > 0) {
+    console.error("=================================================");
+    console.error("  [FATAL ERROR] Server startup aborted!");
+    console.error("  Missing required Pinata configuration variable(s):");
+    missingEnv.forEach((key) => console.error(`    * ${key}`));
+    console.error("  Please set these variables in Render or your .env file.");
+    console.error("=================================================");
+    process.exit(1);
+  }
+
+  app.listen(PORT, "0.0.0.0", () => {
     console.log("=================================================");
     console.log(`  ReLife Backend API Server running on port ${PORT}`);
     console.log(`  Health Check: http://localhost:${PORT}/api/health`);

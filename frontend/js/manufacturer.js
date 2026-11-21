@@ -30,8 +30,10 @@ document.addEventListener("DOMContentLoaded", async () => {
   let pageSize = 10;
   let totalManufacturerProducts = 0;
 
-  // Centralized API Base URL resolved from shared ReLifeWallet module
-  const API_BASE = ReLifeWallet.getApiBase();
+  // Centralized API Base URL resolved from shared ReLifeWallet module / config
+  const API_BASE = (typeof ReLifeWallet !== "undefined" && ReLifeWallet.getApiBase)
+    ? ReLifeWallet.getApiBase()
+    : (window.API_BASE_URL || window.RELIFE_CONFIG?.apiBase || "http://localhost:5000");
 
   let userAccount = null;
   let isManufacturer = false;
@@ -251,7 +253,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           });
         } catch (fetchErr) {
           throw new Error(
-            `Backend API unreachable at ${API_BASE}. Please verify that the Express backend is running on port 5000 and CORS is permitted.`
+            `Backend API unreachable at ${API_BASE}. Please verify that the backend is running and CORS allows ${window.location.origin}.`
           );
         }
 
@@ -295,7 +297,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
       } catch (fetchErr) {
         throw new Error(
-          `Backend API unreachable at ${API_BASE}. Please verify that the Express backend is running on port 5000 and CORS is permitted.`
+          `Backend API unreachable at ${API_BASE}. Please verify that the backend is running and CORS allows ${window.location.origin}.`
         );
       }
 

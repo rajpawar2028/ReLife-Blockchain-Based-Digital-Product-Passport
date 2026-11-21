@@ -254,16 +254,23 @@ const ReLifeWallet = {
 
   /**
    * Resolves the single centralized API base URL for backend communication.
-   * Prioritizes window.RELIFE_CONFIG.apiBase or current origin on port 5000.
+   * - When running on localhost / 127.0.0.1, routes to http://localhost:5000.
+   * - In production (Vercel), routes to window.API_BASE_URL or window.RELIFE_CONFIG.apiBase (Render).
    */
   getApiBase() {
-    if (typeof window !== "undefined" && window.RELIFE_CONFIG && window.RELIFE_CONFIG.apiBase) {
-      return window.RELIFE_CONFIG.apiBase;
-    }
-    if (typeof window !== "undefined" && window.location && window.location.origin) {
-      return window.location.origin.includes("5000")
-        ? window.location.origin
-        : "http://localhost:5000";
+    if (typeof window !== "undefined" && window.location) {
+      const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+      if (isLocalhost) {
+        return window.location.origin.includes("5000")
+          ? window.location.origin
+          : "http://localhost:5000";
+      }
+      if (window.API_BASE_URL) {
+        return window.API_BASE_URL.replace(/\/+$/, "");
+      }
+      if (window.RELIFE_CONFIG && window.RELIFE_CONFIG.apiBase) {
+        return window.RELIFE_CONFIG.apiBase.replace(/\/+$/, "");
+      }
     }
     return "http://localhost:5000";
   },

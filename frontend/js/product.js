@@ -39,9 +39,9 @@ document.addEventListener("DOMContentLoaded", async () => {
   const recycledBadge = document.getElementById("recycledBadge");
   const qrcodeContainer = document.getElementById("qrcodeContainer");
 
-  const API_BASE = window.location.origin.includes("5000")
-    ? window.location.origin
-    : "http://localhost:5000";
+  const API_BASE = (typeof ReLifeWallet !== "undefined" && ReLifeWallet.getApiBase)
+    ? ReLifeWallet.getApiBase()
+    : (window.API_BASE_URL || window.RELIFE_CONFIG?.apiBase || "http://localhost:5000");
 
   // IPFS Metadata Elements
   const viewProdCarbon = document.getElementById("viewProdCarbon");
