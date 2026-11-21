@@ -133,5 +133,54 @@ describe("Phase 5: Frontend Core & Role-Based UI Verification", function () {
     expect(mfgJs).to.include('ReLifeWallet.on("accountChanged"');
     expect(mfgJs).to.include('ReLifeWallet.on("chainChanged"');
   });
+
+  it("should wire up wrongNetworkAlert and live listeners in repair.js", function () {
+    const repairJs = fs.readFileSync(path.join(frontendDir, "js", "repair.js"), "utf8");
+    const repairHtml = fs.readFileSync(path.join(frontendDir, "repair.html"), "utf8");
+
+    // UI elements in HTML
+    expect(repairHtml).to.include('id="wrongNetworkAlert"');
+    expect(repairHtml).to.include('id="btnSwitchNetwork"');
+    expect(repairHtml).to.include('id="currentNetworkDisplay"');
+
+    // Logic in JS
+    expect(repairJs).to.include("ReLifeWallet.isCorrectNetwork");
+    expect(repairJs).to.include("ReLifeWallet.switchToSepolia()");
+    expect(repairJs).to.include('ReLifeWallet.on("chainChanged"');
+    expect(repairJs).to.include('ReLifeWallet.on("accountChanged"');
+  });
+
+  it("should normalize hex, BigInt, and Number chain IDs correctly in wallet.js", function () {
+    const walletJs = fs.readFileSync(path.join(frontendDir, "js", "wallet.js"), "utf8");
+    const sandbox = {
+      window: { ethereum: null, RELIFE_CONFIG: { chainId: 11155111 } },
+      ethers: { BrowserProvider: class {} },
+    };
+    const fn = new Function("window", "ethers", `${walletJs}; return window.ReLifeWallet;`);
+    const wallet = fn(sandbox.window, sandbox.ethers);
+
+    expect(wallet.getNormalizedChainId("0xaa36a7")).to.equal(11155111);
+    expect(wallet.getNormalizedChainId(11155111n)).to.equal(11155111);
+    expect(wallet.getNormalizedChainId(11155111)).to.equal(11155111);
+    expect(wallet.getNormalizedChainId("0x7a69")).to.equal(31337);
+    expect(wallet.getNormalizedChainId(31337n)).to.equal(31337);
+    expect(wallet.getNormalizedChainId("0x1")).to.equal(1);
+    expect(wallet.getNormalizedChainId(null)).to.be.null;
+
+    // Test getter with Sepolia hex
+    wallet.chainId = "0xaa36a7";
+    expect(wallet.isCorrectNetwork).to.be.true;
+    expect(wallet.isSepolia).to.be.true;
+
+    // Test getter with Sepolia BigInt
+    wallet.chainId = 11155111n;
+    expect(wallet.isCorrectNetwork).to.be.true;
+    expect(wallet.isSepolia).to.be.true;
+
+    // Test getter with Mainnet
+    wallet.chainId = "0x1";
+    expect(wallet.isCorrectNetwork).to.be.false;
+    expect(wallet.isSepolia).to.be.false;
+  });
 });
 

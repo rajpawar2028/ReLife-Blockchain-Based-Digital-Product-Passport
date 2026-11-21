@@ -3,8 +3,10 @@
  * Handles MetaMask connection, network verification, account switching, contract binding & friendly error decoding.
  */
 
-const SEPOLIA_CHAIN_ID = 11155111n;
-const HARDHAT_CHAIN_ID = 31337n;
+const SEPOLIA_CHAIN_ID = 11155111;
+const SEPOLIA_CHAIN_HEX = "0xaa36a7";
+const HARDHAT_CHAIN_ID = 31337;
+const HARDHAT_CHAIN_HEX = "0x7a69";
 
 const ReLifeWallet = {
   provider: null,
@@ -14,6 +16,48 @@ const ReLifeWallet = {
   chainId: null,
   contract: null,
   listeners: [],
+
+  SEPOLIA_CHAIN_ID: 11155111,
+  SEPOLIA_CHAIN_HEX: "0xaa36a7",
+  HARDHAT_CHAIN_ID: 31337,
+  HARDHAT_CHAIN_HEX: "0x7a69",
+
+  /**
+   * Safely normalizes any chainId (hex string "0xaa36a7", BigInt 11155111n, or Number 11155111) to a standard Number.
+   * @param {string|bigint|number|null} [id] - Optional chainId to normalize, defaults to this.chainId.
+   * @returns {number|null}
+   */
+  getNormalizedChainId(id) {
+    const raw = id !== undefined ? id : this.chainId;
+    if (raw === null || raw === undefined) return null;
+    try {
+      if (typeof raw === "string" && raw.startsWith("0x")) {
+        return parseInt(raw, 16);
+      }
+      return Number(raw);
+    } catch (_) {
+      return null;
+    }
+  },
+
+  /**
+   * Returns whether the connected wallet is on a supported network (Sepolia or Hardhat testnet).
+   */
+  get isCorrectNetwork() {
+    const id = this.getNormalizedChainId();
+    if (!id) return false;
+    const targetChainId = window.RELIFE_CONFIG?.chainId
+      ? Number(window.RELIFE_CONFIG.chainId)
+      : this.SEPOLIA_CHAIN_ID;
+    return id === targetChainId || id === this.HARDHAT_CHAIN_ID;
+  },
+
+  /**
+   * Returns whether the connected wallet is strictly on Sepolia (11155111).
+   */
+  get isSepolia() {
+    return this.getNormalizedChainId() === this.SEPOLIA_CHAIN_ID;
+  },
 
   /**
    * Resolves the genuine Ethereum provider (handling file:// protocol and multi-wallet collisions).
@@ -77,10 +121,20 @@ const ReLifeWallet = {
         this._notifyListeners("accountChanged", this.account);
       });
 
-      // Listen for chain/network changes
-      rawProvider.on("chainChanged", (chainIdHex) => {
+      // Listen for chain/network changes live
+      rawProvider.on("chainChanged", async (chainIdHex) => {
         console.log("Chain changed:", chainIdHex);
-        window.location.reload();
+        this.chainId = chainIdHex;
+        if (this.rawProvider) {
+          try {
+            this.provider = new ethers.BrowserProvider(this.rawProvider);
+            if (this.account) {
+              this.signer = await this.provider.getSigner();
+              await this._attachContract();
+            }
+          } catch (_) {}
+        }
+        this._notifyListeners("chainChanged", this.chainId);
       });
     }
 
@@ -94,6 +148,14 @@ const ReLifeWallet = {
         this.chainId = network.chainId;
         await this._attachContract();
         this._notifyListeners("connected", { account: this.account, chainId: this.chainId });
+      } else {
+        // Query current network even if no accounts are connected yet
+        try {
+          const rawChain = await rawProvider.request({ method: "eth_chainId" });
+          if (rawChain) {
+            this.chainId = rawChain;
+          }
+        } catch (_) {}
       }
     } catch (err) {
       console.warn("Session check notice:", err.message);
@@ -211,7 +273,9 @@ const ReLifeWallet = {
    */
   async switchToSepolia() {
     const rawProvider = this.rawProvider || this.getEthereumProvider();
-    if (!rawProvider || !rawProvider.request) return;
+    if (!rawProvider || !rawProvider.request) {
+      throw new Error("No Ethereum provider available to switch networks.");
+    }
     try {
       await rawProvider.request({
         method: "wallet_switchEthereumChain",
@@ -219,14 +283,22 @@ const ReLifeWallet = {
       });
     } catch (switchError) {
       // 4902 indicates chain has not been added to MetaMask
-      if (switchError.code === 4902) {
+      if (
+        switchError.code === 4902 ||
+        switchError.data?.originalError?.code === 4902 ||
+        switchError.message?.includes("Unrecognized chain ID")
+      ) {
         await rawProvider.request({
           method: "wallet_addEthereumChain",
           params: [
             {
               chainId: "0xaa36a7",
               chainName: "Sepolia Testnet",
-              rpcUrls: ["https://rpc.sepolia.org"],
+              rpcUrls: [
+                "https://ethereum-sepolia-rpc.publicnode.com",
+                "https://rpc2.sepolia.org",
+                "https://rpc.sepolia.org"
+              ],
               nativeCurrency: { name: "Sepolia ETH", symbol: "SEP", decimals: 18 },
               blockExplorerUrls: ["https://sepolia.etherscan.io"],
             },
@@ -236,6 +308,20 @@ const ReLifeWallet = {
         throw switchError;
       }
     }
+
+    // Refresh state after successful switch
+    try {
+      const updatedHex = await rawProvider.request({ method: "eth_chainId" });
+      this.chainId = updatedHex;
+      if (this.rawProvider) {
+        this.provider = new ethers.BrowserProvider(this.rawProvider);
+        if (this.account) {
+          this.signer = await this.provider.getSigner();
+          await this._attachContract();
+        }
+      }
+      this._notifyListeners("chainChanged", this.chainId);
+    } catch (_) {}
   },
 
   /**

@@ -196,6 +196,13 @@
 - **End-to-End Role Gate & Product Inspection**: Structured `repair.html` and `repair.js` with client-side `hasRole(REPAIR_CENTER_ROLE, userAccount)` authorization, dynamic "Verify Product" lookup, instant terminal `Recycled` status locking, and IPFS diagnostics attachment via `/api/ipfs/upload-file`.
 - **Global Multi-Portal Navigation Consistency**: Added "Repair Center" across all 7 navigation bars with page-specific active highlights, ensuring seamless navigation for all ecosystem roles.
 
+## Network Normalization & Live Chain Synchronization
+- **Centralized Chain ID Normalization (`ReLifeWallet.getNormalizedChainId`)**: EIP-1193 RPC providers return hex-encoded strings (`"0xaa36a7"`), while Ethers.js v6 `network.chainId` returns `BigInt` (`11155111n`), and application configs store `Number` (`11155111`). Because JavaScript strict equality (`===`) evaluates across different types as `false`, we centralized chain ID parsing in `ReLifeWallet.getNormalizedChainId()`. This method handles hex, BigInt, and numeric inputs, providing safe `isCorrectNetwork` and `isSepolia` boolean getters.
+- **Dynamic Live Reactivity over Hard Page Reloads**: Replaced `window.location.reload()` on `chainChanged` events with dynamic provider re-binding and UI re-rendering callbacks. When a user switches networks in MetaMask, the application updates network alerts, status badges, and authorized sections live without losing in-memory form state or forcing browser re-downloads.
+- **Robust Network Switcher & EIP-3326/EIP-3085 Handling**: Implemented comprehensive error handling in `ReLifeWallet.switchToSepolia()`. When `wallet_switchEthereumChain` returns error `4902` (unrecognized chain), the wallet automatically dispatches `wallet_addEthereumChain` populated with public reliable RPC endpoints (`ethereum-sepolia-rpc.publicnode.com`, `rpc2.sepolia.org`), and catches user rejections gracefully.
+- **CDN Cache Invalidation for Edge Deployment (Vercel)**: Appended cache-busting query strings (`?v=1.1.0`) to `<script>` tags across all 7 frontend HTML pages to guarantee that edge CDN caches on platforms like Vercel immediately deliver the updated JavaScript modules rather than serving stale cached scripts.
+
+
 
 
 

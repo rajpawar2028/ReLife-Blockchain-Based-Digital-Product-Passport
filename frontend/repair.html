@@ -97,6 +97,7 @@
       <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
         <div>
           <strong>Wrong Network:</strong> Please switch your wallet to <span id="targetNetworkName">Ethereum Sepolia</span> (Chain ID: 11155111).
+          <span id="currentNetworkDisplay" style="display: block; font-size: 0.8rem; color: #cbd5e1; margin-top: 0.2rem;"></span>
         </div>
         <button id="btnSwitchNetwork" class="btn btn-primary" style="padding: 0.4rem 1rem; font-size: 0.85rem;">
           Switch Network
@@ -272,8 +273,8 @@
 
   <!-- Scripts -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js"></script>
-  <script src="contract-data.js"></script>
-  <script src="js/wallet.js"></script>
-  <script src="js/repair.js"></script>
+  <script src="contract-data.js?v=1.1.0"></script>
+  <script src="js/wallet.js?v=1.1.0"></script>
+  <script src="js/repair.js?v=1.1.0"></script>
 </body>
 </html>

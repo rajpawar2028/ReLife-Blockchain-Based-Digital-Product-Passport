@@ -56,9 +56,18 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (btnSwitchNetwork) {
     btnSwitchNetwork.addEventListener("click", async () => {
       try {
+        btnSwitchNetwork.disabled = true;
+        btnSwitchNetwork.textContent = "Switching...";
         await ReLifeWallet.switchToSepolia();
+        await updateWalletUI();
       } catch (e) {
-        showStatus("danger", "Network switch failed: " + e.message);
+        const msg = e.code === 4001 || e.message?.includes("rejected")
+          ? "Network switch request was rejected in MetaMask."
+          : `Network switch failed: ${e.message}`;
+        showStatus("danger", msg);
+      } finally {
+        btnSwitchNetwork.disabled = false;
+        btnSwitchNetwork.textContent = "Switch Network";
       }
     });
   }
@@ -103,18 +112,11 @@ document.addEventListener("DOMContentLoaded", async () => {
       pauseBanner.style.display = ReLifeWallet.isPaused ? "block" : "none";
     }
 
-    // Check correct network
-    if (wrongNetworkAlert) {
-      if (userAccount && !ReLifeWallet.isCorrectNetwork) {
-        wrongNetworkAlert.style.display = "block";
-      } else {
-        wrongNetworkAlert.style.display = "none";
-      }
-    }
-
+    // State 1: Wallet Disconnected
     if (!userAccount) {
       if (walletBadge) walletBadge.innerHTML = `<span class="badge badge-warning">Disconnected</span>`;
       if (authSection) authSection.style.display = "block";
+      if (wrongNetworkAlert) wrongNetworkAlert.style.display = "none";
       if (unauthorizedAlert) unauthorizedAlert.style.display = "none";
       if (repairSection) repairSection.style.display = "none";
       return;
@@ -123,6 +125,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     const shortAddr = `${userAccount.slice(0, 6)}...${userAccount.slice(-4)}`;
     if (walletBadge) walletBadge.innerHTML = `<span class="badge badge-info">${shortAddr}</span>`;
 
+    // State 2: Wrong Network Check
+    if (!ReLifeWallet.isCorrectNetwork) {
+      if (authSection) authSection.style.display = "none";
+      if (unauthorizedAlert) unauthorizedAlert.style.display = "none";
+      if (repairSection) repairSection.style.display = "none";
+      if (wrongNetworkAlert) {
+        wrongNetworkAlert.style.display = "block";
+        const curChain = ReLifeWallet.getNormalizedChainId();
+        const displayEl = document.getElementById("currentNetworkDisplay");
+        if (displayEl) {
+          displayEl.textContent = `Currently connected to: ${curChain !== null ? `Chain ID ${curChain}` : "Unknown Network"}`;
+        }
+      }
+      return;
+    }
+
+    // Network is correct -> Hide wrong network alert
+    if (wrongNetworkAlert) {
+      wrongNetworkAlert.style.display = "none";
+    }
+
+    // State 3: Role Authorization Check
     try {
       const contract = ReLifeWallet.contract || ReLifeWallet.getReadOnlyContract();
       if (!contract) return;

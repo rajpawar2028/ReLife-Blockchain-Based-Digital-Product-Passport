@@ -137,9 +137,8 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // State 2: Wrong Network or Missing Deployed Bytecode
-    const chainId = ReLifeWallet.chainId;
-    const isSepolia = (chainId === 11155111n || chainId === 11155111);
-    const isHardhat = (chainId === 31337n || chainId === 31337);
+    const chainId = ReLifeWallet.getNormalizedChainId();
+    const isCorrectNetwork = ReLifeWallet.isCorrectNetwork;
 
     let hasBytecode = true;
     const provider = ReLifeWallet.provider || (window.ethereum ? new ethers.BrowserProvider(window.ethereum) : null);
@@ -150,7 +149,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       } catch (_) {}
     }
 
-    if ((!isSepolia && !isHardhat) || !hasBytecode) {
+    if (!isCorrectNetwork || !hasBytecode) {
       if (authSection) authSection.style.display = "none";
       if (unauthorizedAlert) unauthorizedAlert.style.display = "none";
       if (registrationCard) registrationCard.style.display = "none";
