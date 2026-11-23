@@ -56,11 +56,13 @@ const corsOptions = {
       return callback(null, true);
     }
 
+    const cleanOrigin = origin.replace(/\/+$/, "");
+
     // Allow configured origins, any localhost/127.0.0.1 port, or Vercel production/preview domains
     const isAllowed =
-      allowedOrigins.includes(origin) ||
-      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin) ||
-      /^https:\/\/relife-[a-z0-9-]+\.vercel\.app$/.test(origin);
+      allowedOrigins.includes(cleanOrigin) ||
+      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(cleanOrigin) ||
+      /^https:\/\/relife-[a-z0-9-]+\.vercel\.app$/.test(cleanOrigin);
 
     if (isAllowed) {
       callback(null, true);
@@ -69,7 +71,14 @@ const corsOptions = {
     }
   },
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "X-Simulated-IP", "X-Skip-Rate-Limit"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Simulated-IP",
+    "X-Skip-Rate-Limit",
+    "Accept",
+    "Cache-Control"
+  ],
   credentials: true,
   optionsSuccessStatus: 200, // Preflight OPTIONS response for legacy browsers
 };

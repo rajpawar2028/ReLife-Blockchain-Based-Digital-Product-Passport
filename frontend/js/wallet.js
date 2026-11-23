@@ -482,6 +482,71 @@ const ReLifeWallet = {
   },
 
   /**
+   * Pings the backend /api/health endpoint with up to a 60-second timeout.
+   * Handles Render free tier cold starts (~30-60s) gracefully, updating progress live.
+   * Distinguishes between CORS errors, server down/404 errors, and network errors.
+   * @param {Function} [onProgress] - Status callback receiving user-friendly text.
+   * @param {number} [timeoutMs=60000] - Total timeout in milliseconds.
+   * @returns {Promise<Object>} { ok: true, data } on success or throws descriptive Error.
+   */
+  async waitForBackend(onProgress = () => {}, timeoutMs = 60000) {
+    const apiBase = this.getApiBase();
+    const startTime = Date.now();
+    let lastError = null;
+
+    while (Date.now() - startTime < timeoutMs) {
+      const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
+
+      if (elapsedSec >= 2) {
+        onProgress(
+          `⏳ Waking up server (${elapsedSec}s elapsed)... Render free tier spins down on idle and takes ~30–60s to boot. Please wait...`
+        );
+      } else {
+        onProgress("Connecting to backend service...");
+      }
+
+      try {
+        const controller = new AbortController();
+        const probeTimeout = setTimeout(() => controller.abort(), 6000);
+
+        const res = await fetch(`${apiBase}/api/health`, {
+          method: "GET",
+          headers: { Accept: "application/json" },
+          signal: controller.signal,
+        });
+        clearTimeout(probeTimeout);
+
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          return { ok: true, data };
+        } else {
+          lastError = new Error(
+            `Backend returned HTTP ${res.status} (${res.statusText || "Error"}). Verify that the service is running on Render.`
+          );
+        }
+      } catch (err) {
+        if (err.name === "AbortError") {
+          lastError = new Error(`Connection probe to ${apiBase} timed out. Server may still be spinning up.`);
+        } else if (err.message && err.message.toLowerCase().includes("failed to fetch")) {
+          lastError = new Error(
+            `Backend API unreachable at ${apiBase}. Render free tier may be cold-starting, or CORS is not permitting ${window.location.origin}.`
+          );
+        } else {
+          lastError = err;
+        }
+      }
+
+      // Wait 3 seconds before next retry probe
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+
+    throw new Error(
+      `Backend API unreachable after 60 seconds at ${apiBase}. ` +
+      (lastError ? `Detail: ${lastError.message}` : "Connection timed out.")
+    );
+  },
+
+  /**
    * Requests network switch to Sepolia or Localhost if needed.
    */
   async switchToSepolia() {

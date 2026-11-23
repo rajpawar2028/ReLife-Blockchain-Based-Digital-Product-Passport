@@ -238,9 +238,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     // UI Loading state
     submitBtn.disabled = true;
     submitSpinner.style.display = "inline-block";
-    showStatus("info", "Step 1/3: Preparing metadata and uploading to Pinata IPFS...");
+    showStatus("info", "Checking backend status... Waking up server if asleep (cold start ~30-60s), please wait...");
 
     try {
+      // 0. Pre-flight health check & wake up cold server (Render free tier)
+      await ReLifeWallet.waitForBackend((msg) => showStatus("info", msg), 60000);
+
       let imageUri = "";
 
       // 1. Upload optional image or document file to IPFS
@@ -257,7 +260,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           });
         } catch (fetchErr) {
           throw new Error(
-            `Backend API unreachable at ${API_BASE}. Please verify that the backend is running and CORS allows ${window.location.origin}.`
+            `File upload request failed to reach ${API_BASE}: ${fetchErr.message}. Verify that the backend is running and CORS allows ${window.location.origin}.`
           );
         }
 
@@ -301,7 +304,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
       } catch (fetchErr) {
         throw new Error(
-          `Backend API unreachable at ${API_BASE}. Please verify that the backend is running and CORS allows ${window.location.origin}.`
+          `Metadata upload request failed to reach ${API_BASE}: ${fetchErr.message}. Verify that the backend is running and CORS allows ${window.location.origin}.`
         );
       }
 

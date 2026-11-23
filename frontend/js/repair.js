@@ -446,8 +446,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // Step 1: Optional IPFS Upload
     if (fileInput && fileInput.files && fileInput.files.length > 0) {
-      showStatus("info", "Step 1/2: Uploading diagnostic report / receipts to Pinata IPFS...");
+      showStatus("info", "Checking backend status... Waking up server if asleep (cold start ~30-60s), please wait...");
       try {
+        await ReLifeWallet.waitForBackend((msg) => showStatus("info", msg), 60000);
+        showStatus("info", "Step 1/2: Uploading diagnostic report / receipts to Pinata IPFS...");
         const formData = new FormData();
         formData.append("file", fileInput.files[0]);
 

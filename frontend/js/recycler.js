@@ -101,6 +101,9 @@ document.addEventListener("DOMContentLoaded", async () => {
       let certificateUri = "";
 
       if (fileInput.files.length > 0) {
+        showStatus("info", "Checking backend status... Waking up server if asleep (cold start ~30-60s), please wait...");
+        await ReLifeWallet.waitForBackend((msg) => showStatus("info", msg), 60000);
+        showStatus("info", "Step 1/2: Uploading official recycling manifest/certificate to IPFS...");
         const formData = new FormData();
         formData.append("file", fileInput.files[0]);
 

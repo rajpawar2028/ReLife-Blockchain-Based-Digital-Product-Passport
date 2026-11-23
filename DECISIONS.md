@@ -206,7 +206,9 @@
 - **Dynamic Header Role Badging**: Added `#headerRoleBadge` across all 7 portal headers. Queries `getUserRoles()` on connect/accountChanged, displaying `👑 Admin`, `🏭 Manufacturer`, `🔧 Repair Center`, `♻️ Recycler`, or `👤 Public User`.
 - **Resilient Fallback Read-Only Provider**: Implemented `getReadOnlyProvider()` with prioritized public Sepolia RPCs (`publicnode.com`, `rpc2.sepolia.org`, `tenderly.co`) and `staticNetwork: 11155111` to prevent UI stalls when MetaMask's primary RPC lags.
 - **Automated CLI Role Tool (`scripts/grantRoles.js`)**: Provided command-line and JSON-driven role management utility for rapid multi-device onboarding without exposing private keys.
-- **CDN Cache Invalidation for Edge Deployment (Vercel)**: Appended cache-busting query strings (`?v=1795414498414`) to `<script>` tags across all 7 frontend HTML pages to guarantee that edge CDN caches on platforms like Vercel immediately deliver the updated JavaScript modules rather than serving stale cached scripts.
+- **Defensive Backend Health & Cold-Start Preflight (`ReLifeWallet.waitForBackend`)**: Implemented automated health polling with a 60-second timeout before IPFS operations in `manufacturer.js`, `repair.js`, and `recycler.js`. Displays live elapsed seconds (*"⏳ Waking up server (18s elapsed)... Render free tier spins down on idle and takes ~30–60s to boot."*), eliminating false "unreachable" alerts during cloud container wakeups.
+- **Explicit Express Preflight OPTIONS Route (`app.options("*", cors())`)**: Added explicit wildcard OPTIONS preflight handling with normalized origins (`cleanOrigin.replace(/\/+$/, "")`) and extended `allowedHeaders` (`Accept`, `Cache-Control`) in `backend/server.js`, preventing preflight browser rejections on cross-origin uploads.
+- **CDN Cache Invalidation for Edge Deployment (Vercel)**: Appended cache-busting query strings (`?v=1795423320962`) to `<script>` tags across all 7 frontend HTML pages to guarantee that edge CDN caches on platforms like Vercel immediately deliver the updated JavaScript modules rather than serving stale cached scripts.
 
 
 

@@ -282,6 +282,13 @@ npm start
 ```
 The server starts at `http://localhost:5000`, simultaneously serving the backend IPFS proxy and all frontend web portals.
 
+### 🌐 Cloud Deployment (Render Backend + Vercel Frontend)
+When deploying to cloud platforms:
+* **Frontend**: Hosted on [Vercel](https://vercel.com) (static SPA with live Ethers.js integration).
+* **Backend**: Hosted on [Render](https://render.com) Web Service.
+* **Cold Starts & Keep-Alive Pinger**:
+  Render free tier instances spin down after 15 minutes of inactivity. When a request arrives, booting the instance takes **30–60 seconds**. ReLife includes automatic cold-start detection that polls `/api/health` and displays a wake-up status before minting. To eliminate cold starts completely, you can set up a free keep-alive monitor (e.g. [cron-job.org](https://cron-job.org) or [UptimeRobot](https://uptimerobot.com)) to ping `https://<your-backend>.onrender.com/api/health` every 10 minutes.
+
 ---
 
 ## 8. End-to-End Demo Walkthrough
