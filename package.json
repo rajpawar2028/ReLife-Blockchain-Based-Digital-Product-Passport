@@ -19,16 +19,20 @@
   ],
   "author": "",
   "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^6.1.2",
     "@openzeppelin/contracts": "^5.6.1",
-    "dotenv": "^18.0.9",
     "hardhat": "^2.29.1",
     "supertest": "^7.3.1"
   },
   "dependencies": {
     "axios": "^1.21.0",
     "cors": "^2.8.6",
+    "dotenv": "^18.0.9",
+    "ethers": "^6.13.5",
     "express": "^5.3.0",
     "express-rate-limit": "^8.7.5",
     "form-data": "^4.0.6",

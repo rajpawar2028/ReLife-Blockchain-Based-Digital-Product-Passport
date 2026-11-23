@@ -1,7 +1,11 @@
 const axios = require("axios");
 const FormData = require("form-data");
 const crypto = require("crypto");
-require("dotenv").config();
+try {
+  require("dotenv").config();
+} catch (_) {
+  // In cloud production containers (Render), environment variables are provided directly by the host
+}
 
 /**
  * Service encapsulating Pinata IPFS integration.

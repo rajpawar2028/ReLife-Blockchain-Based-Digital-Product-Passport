@@ -3,7 +3,11 @@ const cors = require("cors");
 const path = require("path");
 const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
-require("dotenv").config();
+try {
+  require("dotenv").config();
+} catch (_) {
+  // In cloud production containers (Render), environment variables are provided directly by the host
+}
 
 const ipfsRouter = require("./routes/ipfs");
 const authenticityRouter = require("./routes/authenticity");
