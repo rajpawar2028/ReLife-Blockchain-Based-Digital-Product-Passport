@@ -208,7 +208,7 @@ app.use((err, req, res, next) => {
 
 // Start listening if run directly (Render or local npm start)
 if (require.main === module) {
-  // Fail fast immediately if required Pinata credentials are not configured
+  // Check Pinata configuration and inform in logs without crashing the health check server
   const missingEnv = [];
   if (!process.env.PINATA_JWT || process.env.PINATA_JWT.trim() === "" || process.env.PINATA_JWT === "your_pinata_jwt_here") {
     missingEnv.push("PINATA_JWT");
@@ -218,13 +218,12 @@ if (require.main === module) {
   }
 
   if (missingEnv.length > 0) {
-    console.error("=================================================");
-    console.error("  [FATAL ERROR] Server startup aborted!");
-    console.error("  Missing required Pinata configuration variable(s):");
-    missingEnv.forEach((key) => console.error(`    * ${key}`));
-    console.error("  Please set these variables in Render or your .env file.");
-    console.error("=================================================");
-    process.exit(1);
+    console.warn("=================================================");
+    console.warn("  [NOTICE] Pinata configuration incomplete:");
+    missingEnv.forEach((key) => console.warn(`    * ${key}`));
+    console.warn("  Server starting with mock/simulation fallback for IPFS.");
+    console.warn("  Add these in Render Dashboard > Environment for live IPFS pinning.");
+    console.warn("=================================================");
   }
 
   app.listen(PORT, "0.0.0.0", () => {
