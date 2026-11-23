@@ -185,10 +185,14 @@ document.addEventListener("DOMContentLoaded", async () => {
       } else {
         // State 3: Connected but Unauthorized
         if (authSection) authSection.style.display = "none";
-        if (unauthorizedAlert) unauthorizedAlert.style.display = "block";
-        const unauthAddrEl = document.getElementById("unauthorizedAddress");
-        if (unauthAddrEl) unauthAddrEl.innerText = userAccount;
         if (registrationCard) registrationCard.style.display = "none";
+        if (unauthorizedAlert) {
+          ReLifeWallet.renderAccessDeniedCard(unauthorizedAlert, {
+            requiredRoleName: "Authorized Manufacturer Role",
+            requiredRoleCode: "MANUFACTURER_ROLE",
+            userAddress: userAccount
+          });
+        }
       }
     } catch (err) {
       console.error("Role verification failed:", err);

@@ -157,9 +157,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         loadParticipantsDirectory();
       } else {
         authSection.style.display = "none";
-        unauthAccount.innerText = userAccount;
-        unauthorizedSection.style.display = "block";
         adminWorkspace.style.display = "none";
+        ReLifeWallet.renderAccessDeniedCard(unauthorizedSection, {
+          requiredRoleName: "Admin Role",
+          requiredRoleCode: "DEFAULT_ADMIN_ROLE",
+          userAddress: userAccount
+        });
       }
     } catch (err) {
       console.error("Admin verification error:", err);

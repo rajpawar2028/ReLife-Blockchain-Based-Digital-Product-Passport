@@ -66,9 +66,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         recyclerSection.style.display = "block";
       } else {
         authSection.style.display = "none";
-        unauthorizedAddress.innerText = userAccount;
-        unauthorizedAlert.style.display = "block";
         recyclerSection.style.display = "none";
+        if (unauthorizedAlert) {
+          ReLifeWallet.renderAccessDeniedCard(unauthorizedAlert, {
+            requiredRoleName: "Certified Recycler Role",
+            requiredRoleCode: "RECYCLER_ROLE",
+            userAddress: userAccount
+          });
+        }
       }
     } catch (err) {
       console.error("Role check failed:", err);

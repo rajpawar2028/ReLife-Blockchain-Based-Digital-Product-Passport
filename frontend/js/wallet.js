@@ -111,12 +111,14 @@ const ReLifeWallet = {
           try {
             this.signer = await this.provider.getSigner();
             await this._attachContract();
+            this.updateHeaderRoleBadge(this.account);
           } catch (err) {
             console.warn("Signer update error:", err.message);
           }
         } else {
           this.signer = null;
           this.contract = null;
+          this.updateHeaderRoleBadge(null);
         }
         this._notifyListeners("accountChanged", this.account);
       });
@@ -147,6 +149,7 @@ const ReLifeWallet = {
         const network = await this.provider.getNetwork();
         this.chainId = network.chainId;
         await this._attachContract();
+        this.updateHeaderRoleBadge(this.account);
         this._notifyListeners("connected", { account: this.account, chainId: this.chainId });
       } else {
         // Query current network even if no accounts are connected yet
@@ -205,6 +208,7 @@ const ReLifeWallet = {
       this.chainId = network.chainId;
 
       await this._attachContract();
+      this.updateHeaderRoleBadge(this.account);
       this._notifyListeners("connected", { account: this.account, chainId: this.chainId });
 
       return { account: this.account, chainId: this.chainId };
@@ -239,17 +243,219 @@ const ReLifeWallet = {
     }
   },
 
+  _readProvider: null,
+
   /**
-   * Gets a read-only instance of the contract (works even if wallet is disconnected).
+   * Returns a resilient read-only provider for fast blockchain reads without waiting on MetaMask.
+   */
+  getReadOnlyProvider() {
+    if (this._readProvider) return this._readProvider;
+
+    const endpoints = [
+      window.RELIFE_CONFIG?.readRpcUrl,
+      "https://ethereum-sepolia-rpc.publicnode.com",
+      "https://rpc2.sepolia.org",
+      "https://gateway.tenderly.co/public/sepolia",
+      "https://rpc.sepolia.org"
+    ].filter(Boolean);
+
+    const primaryUrl = endpoints[0];
+    try {
+      this._readProvider = new ethers.JsonRpcProvider(primaryUrl, 11155111, {
+        staticNetwork: ethers.Network.from(11155111)
+      });
+      return this._readProvider;
+    } catch (_) {
+      this._readProvider = new ethers.JsonRpcProvider("https://rpc2.sepolia.org", 11155111);
+      return this._readProvider;
+    }
+  },
+
+  /**
+   * Gets a read-only instance of the contract (works even if wallet is disconnected or MetaMask RPC is slow).
    */
   getReadOnlyContract() {
     if (!window.RELIFE_CONFIG) return null;
-    const readProvider = this.provider || new ethers.JsonRpcProvider("https://rpc.sepolia.org");
+    const readProvider = this.getReadOnlyProvider();
     return new ethers.Contract(
       window.RELIFE_CONFIG.address,
       window.RELIFE_CONFIG.abi,
       readProvider
     );
+  },
+
+  /**
+   * Queries on-chain roles for a target address using the resilient read provider.
+   * @param {string} [account] - Address to query (defaults to connected account)
+   */
+  async getUserRoles(account) {
+    const target = account || this.account;
+    if (!target) {
+      return { isAdmin: false, isManufacturer: false, isRepairCenter: false, isRecycler: false, roles: [], primaryRole: "Public User" };
+    }
+
+    try {
+      const contract = this.getReadOnlyContract();
+      if (!contract) {
+        return { isAdmin: false, isManufacturer: false, isRepairCenter: false, isRecycler: false, roles: [], primaryRole: "Public User" };
+      }
+
+      const DEFAULT_ADMIN_ROLE = ethers.ZeroHash;
+      const MANUFACTURER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("MANUFACTURER_ROLE"));
+      const REPAIR_CENTER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("REPAIR_CENTER_ROLE"));
+      const RECYCLER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("RECYCLER_ROLE"));
+
+      // 4-second timeout per role query so UI never blocks
+      const queryRole = async (hash) => {
+        try {
+          const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 4000));
+          return await Promise.race([contract.hasRole(hash, target), timeout]);
+        } catch (_) {
+          return false;
+        }
+      };
+
+      const [isAdmin, isManufacturer, isRepairCenter, isRecycler] = await Promise.all([
+        queryRole(DEFAULT_ADMIN_ROLE),
+        queryRole(MANUFACTURER_ROLE),
+        queryRole(REPAIR_CENTER_ROLE),
+        queryRole(RECYCLER_ROLE)
+      ]);
+
+      const roles = [];
+      if (isAdmin) roles.push("Admin");
+      if (isManufacturer) roles.push("Manufacturer");
+      if (isRepairCenter) roles.push("Repair Center");
+      if (isRecycler) roles.push("Recycler");
+
+      const primaryRole = roles.length > 0 ? roles.join(" / ") : "Public User";
+      return { isAdmin, isManufacturer, isRepairCenter, isRecycler, roles, primaryRole };
+    } catch (_) {
+      return { isAdmin: false, isManufacturer: false, isRepairCenter: false, isRecycler: false, roles: [], primaryRole: "Public User" };
+    }
+  },
+
+  /**
+   * Updates the role badge in the navigation header across all portals.
+   */
+  async updateHeaderRoleBadge(account) {
+    const target = account || this.account;
+    const badgeEl = document.getElementById("headerRoleBadge") || document.getElementById("userRoleBadge");
+    if (!badgeEl) return;
+
+    if (!target) {
+      badgeEl.style.display = "none";
+      return;
+    }
+
+    badgeEl.style.display = "inline-flex";
+    badgeEl.style.alignItems = "center";
+    badgeEl.className = "badge";
+    badgeEl.style.fontSize = "0.78rem";
+    badgeEl.style.padding = "0.3rem 0.65rem";
+    badgeEl.style.fontWeight = "600";
+    badgeEl.style.borderRadius = "9999px";
+
+    const { isAdmin, isManufacturer, isRepairCenter, isRecycler } = await this.getUserRoles(target);
+
+    if (isAdmin) {
+      badgeEl.style.background = "linear-gradient(135deg, #f59e0b, #d97706)";
+      badgeEl.style.color = "#ffffff";
+      badgeEl.innerHTML = "👑 Admin";
+    } else if (isManufacturer) {
+      badgeEl.style.background = "linear-gradient(135deg, #0284c7, #0369a1)";
+      badgeEl.style.color = "#ffffff";
+      badgeEl.innerHTML = "🏭 Manufacturer";
+    } else if (isRepairCenter) {
+      badgeEl.style.background = "linear-gradient(135deg, #ea580c, #c2410c)";
+      badgeEl.style.color = "#ffffff";
+      badgeEl.innerHTML = "🔧 Repair Center";
+    } else if (isRecycler) {
+      badgeEl.style.background = "linear-gradient(135deg, #10b981, #059669)";
+      badgeEl.style.color = "#ffffff";
+      badgeEl.innerHTML = "♻️ Recycler";
+    } else {
+      badgeEl.style.background = "rgba(148, 163, 184, 0.18)";
+      badgeEl.style.color = "#cbd5e1";
+      badgeEl.style.border = "1px solid rgba(148, 163, 184, 0.3)";
+      badgeEl.innerHTML = "👤 Public User";
+    }
+  },
+
+  /**
+   * Standardized component rendering an informative "Access Denied" state.
+   * Displays the connected address (short), required role, real admin address, clear steps, and copy button.
+   */
+  renderAccessDeniedCard(containerOrId, { requiredRoleName, requiredRoleCode, userAddress, adminAddress }) {
+    const el = typeof containerOrId === "string" ? document.getElementById(containerOrId) : containerOrId;
+    if (!el) return;
+
+    const user = userAddress || this.account || "0x0000...0000";
+    const shortUser = user.length > 10 ? `${user.slice(0, 6)}...${user.slice(-4)}` : user;
+    const admin = adminAddress || window.RELIFE_CONFIG?.deployer || "0xd75dC45aEDDa24Bc3d3e92B03D75b828f473530E";
+    const shortAdmin = admin.length > 10 ? `${admin.slice(0, 6)}...${admin.slice(-4)}` : admin;
+
+    el.innerHTML = `
+      <div class="card access-denied-box" style="border: 1px solid var(--danger); background: rgba(239, 68, 68, 0.06); padding: 2rem 1.5rem; text-align: center; border-radius: var(--radius-lg); margin-bottom: 2rem;">
+        <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🚫</div>
+        <h2 style="color: var(--danger); font-size: 1.35rem; margin-bottom: 0.5rem; font-weight: 700;">
+          Access Denied: ${requiredRoleName || "Authorized Role Required"}
+        </h2>
+        <p style="color: var(--text-muted); max-width: 640px; margin: 0 auto 1.25rem auto; font-size: 0.95rem; line-height: 1.5;">
+          Connected wallet <code style="color: #f1f5f9; background: rgba(15, 23, 42, 0.8); padding: 0.25rem 0.55rem; border-radius: 4px; font-weight: 600; font-size: 0.88rem;">${shortUser}</code> does not hold the <strong>${requiredRoleCode || requiredRoleName}</strong> on the ReLife Sepolia contract.
+        </p>
+
+        <div style="display: flex; justify-content: center; gap: 0.75rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+          <button type="button" class="btn btn-outline btn-copy-my-address" style="padding: 0.45rem 1.1rem; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 0.35rem;">
+            📋 Copy My Address
+          </button>
+        </div>
+
+        <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid var(--dark-border); border-radius: var(--radius-md); max-width: 640px; margin: 0 auto; padding: 1.25rem; text-align: left; font-size: 0.875rem;">
+          <div style="font-weight: 600; color: #f8fafc; margin-bottom: 0.65rem; display: flex; align-items: center; gap: 0.4rem;">
+            <span>💡 How to Get Access (Onboarding Steps):</span>
+          </div>
+          <ol style="margin: 0; padding-left: 1.25rem; color: #cbd5e1; line-height: 1.7;">
+            <li>Click <strong>Copy My Address</strong> above to copy your full address to your clipboard.</li>
+            <li>Send your address to the contract administrator:
+              <div style="margin: 0.35rem 0; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                <code style="color: #38bdf8; background: rgba(2, 132, 199, 0.15); padding: 0.2rem 0.45rem; border-radius: 4px; font-size: 0.82rem; word-break: break-all;">${shortAdmin}</code>
+                <button type="button" class="btn btn-secondary btn-copy-admin-address" style="padding: 0.2rem 0.6rem; font-size: 0.75rem;">Copy Admin</button>
+                <a href="https://sepolia.etherscan.io/address/${admin}" target="_blank" style="color: #94a3b8; font-size: 0.75rem; text-decoration: underline;">View on Etherscan &nearr;</a>
+              </div>
+            </li>
+            <li>Ask the administrator to grant your wallet the <strong>${requiredRoleCode || requiredRoleName}</strong> via the <a href="admin.html" style="color: var(--primary); text-decoration: underline;">Admin Portal</a> or the <code>grantRoles.js</code> CLI script.</li>
+            <li>Once granted on Sepolia, simply refresh this page or re-select your account in MetaMask!</li>
+          </ol>
+        </div>
+      </div>
+    `;
+
+    el.style.display = "block";
+
+    const copyUserBtn = el.querySelector(".btn-copy-my-address");
+    if (copyUserBtn) {
+      copyUserBtn.addEventListener("click", () => {
+        navigator.clipboard.writeText(user).then(() => {
+          copyUserBtn.textContent = "✅ Address Copied!";
+          setTimeout(() => {
+            copyUserBtn.textContent = "📋 Copy My Address";
+          }, 2500);
+        });
+      });
+    }
+
+    const copyAdminBtn = el.querySelector(".btn-copy-admin-address");
+    if (copyAdminBtn) {
+      copyAdminBtn.addEventListener("click", () => {
+        navigator.clipboard.writeText(admin).then(() => {
+          copyAdminBtn.textContent = "✅ Copied!";
+          setTimeout(() => {
+            copyAdminBtn.textContent = "Copy Admin";
+          }, 2000);
+        });
+      });
+    }
   },
 
   /**

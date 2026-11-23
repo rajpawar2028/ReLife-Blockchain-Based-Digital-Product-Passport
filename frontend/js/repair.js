@@ -162,9 +162,14 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (repairSection) repairSection.style.display = "block";
       } else {
         if (authSection) authSection.style.display = "none";
-        if (unauthorizedAddress) unauthorizedAddress.innerText = userAccount;
-        if (unauthorizedAlert) unauthorizedAlert.style.display = "block";
         if (repairSection) repairSection.style.display = "none";
+        if (unauthorizedAlert) {
+          ReLifeWallet.renderAccessDeniedCard(unauthorizedAlert, {
+            requiredRoleName: "Certified Repair Center Role",
+            requiredRoleCode: "REPAIR_CENTER_ROLE",
+            userAddress: userAccount
+          });
+        }
       }
     } catch (err) {
       console.error("Role verification failed:", err);
