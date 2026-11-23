@@ -6,12 +6,20 @@ const app = require("../backend/server");
 
 describe("Phase 4: Backend Express API & IPFS Pinata Service", function () {
   describe("1. Health & Configuration Endpoint", function () {
-    it("should respond with 200 OK and healthy status", async function () {
+    it("should respond with 200 OK and healthy status on /api/health", async function () {
       const res = await request(app).get("/api/health");
       expect(res.status).to.equal(200);
+      expect(res.body.ok).to.be.true;
       expect(res.body.status).to.equal("healthy");
       expect(res.body).to.have.property("pinataConfigured");
       expect(res.body).to.have.property("timestamp");
+    });
+
+    it("should respond with 200 OK on /health alias", async function () {
+      const res = await request(app).get("/health");
+      expect(res.status).to.equal(200);
+      expect(res.body.ok).to.be.true;
+      expect(res.body.status).to.equal("healthy");
     });
   });
 

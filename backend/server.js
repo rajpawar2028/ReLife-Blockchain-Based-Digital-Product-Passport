@@ -127,13 +127,10 @@ const generalApiLimiter = rateLimit({
   skip: (req) => req.headers["x-skip-rate-limit"] === "true",
 });
 
-// Serve frontend static files
-app.use(express.static(path.join(__dirname, "..", "frontend")));
-
 // -------------------------------------------------------------
-// 5. API ROUTES
+// 5. API ROUTES & HEALTH CHECKS
 // -------------------------------------------------------------
-// Health check and environment diagnostic endpoint (unthrottled for cloud uptime monitors & Render probes)
+// Health check and environment diagnostic endpoints (unthrottled for cloud uptime monitors & Render probes)
 app.get("/api/health", (req, res) => {
   res.status(200).json({
     ok: true,
@@ -144,6 +141,20 @@ app.get("/api/health", (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+app.get("/health", (req, res) => {
+  res.status(200).json({
+    ok: true,
+    status: "healthy",
+    service: "ReLife IPFS Backend API",
+    version: "1.0.0",
+    pinataConfigured: pinataService.isConfigured(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Serve frontend static files
+app.use(express.static(path.join(__dirname, "..", "frontend")));
 
 // IPFS upload routes (protected by uploadLimiter: max 10 requests/min)
 app.use("/api/ipfs", uploadLimiter, ipfsRouter);
