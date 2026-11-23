@@ -483,16 +483,17 @@ const ReLifeWallet = {
 
   /**
    * Pings the backend /api/health endpoint with up to a 60-second timeout.
-   * Handles Render free tier cold starts (~30-60s) gracefully, updating progress live.
-   * Distinguishes between CORS errors, server down/404 errors, and network errors.
+   * Tolerant: Treats any HTTP response (even 404 or 503) as "server awake" so uploads can proceed.
+   * Only true network failures or timeouts count as unreachable.
    * @param {Function} [onProgress] - Status callback receiving user-friendly text.
    * @param {number} [timeoutMs=60000] - Total timeout in milliseconds.
-   * @returns {Promise<Object>} { ok: true, data } on success or throws descriptive Error.
+   * @returns {Promise<Object>} { ok: true, ... } on success or throws descriptive Error.
    */
   async waitForBackend(onProgress = () => {}, timeoutMs = 60000) {
     const apiBase = this.getApiBase();
     const startTime = Date.now();
-    let lastError = null;
+    let lastErrorType = "network"; // "network" | "cors_or_network" | "timeout"
+    let lastErrorMessage = "";
 
     while (Date.now() - startTime < timeoutMs) {
       const elapsedSec = Math.floor((Date.now() - startTime) / 1000);
@@ -507,7 +508,7 @@ const ReLifeWallet = {
 
       try {
         const controller = new AbortController();
-        const probeTimeout = setTimeout(() => controller.abort(), 6000);
+        const probeTimeout = setTimeout(() => controller.abort(), 5000);
 
         const res = await fetch(`${apiBase}/api/health`, {
           method: "GET",
@@ -516,23 +517,26 @@ const ReLifeWallet = {
         });
         clearTimeout(probeTimeout);
 
-        if (res.ok) {
+        // If ANY HTTP response was received (200, 404, 500), the HTTP server is awake!
+        if (res.status === 200) {
           const data = await res.json().catch(() => ({}));
-          return { ok: true, data };
+          return { ok: true, status: 200, data, awake: true };
         } else {
-          lastError = new Error(
-            `Backend returned HTTP ${res.status} (${res.statusText || "Error"}). Verify that the service is running on Render.`
-          );
+          // Server responded with an HTTP status code (e.g. 404 or 503).
+          // The container is awake and responding to HTTP traffic.
+          console.warn(`[ReLifeWallet] Health check responded with HTTP ${res.status}. Proceeding to upload.`);
+          return { ok: true, status: res.status, awake: true };
         }
       } catch (err) {
         if (err.name === "AbortError") {
-          lastError = new Error(`Connection probe to ${apiBase} timed out. Server may still be spinning up.`);
+          lastErrorType = "timeout";
+          lastErrorMessage = `Connection probe to ${apiBase} timed out. Server may still be spinning up.`;
         } else if (err.message && err.message.toLowerCase().includes("failed to fetch")) {
-          lastError = new Error(
-            `Backend API unreachable at ${apiBase}. Render free tier may be cold-starting, or CORS is not permitting ${window.location.origin}.`
-          );
+          lastErrorType = "cors_or_network";
+          lastErrorMessage = `Unable to reach ${apiBase}. Render free tier may be cold-starting, or CORS is blocking ${window.location.origin}.`;
         } else {
-          lastError = err;
+          lastErrorType = "network";
+          lastErrorMessage = err.message || "Unknown network error";
         }
       }
 
@@ -540,10 +544,16 @@ const ReLifeWallet = {
       await new Promise((r) => setTimeout(r, 3000));
     }
 
-    throw new Error(
-      `Backend API unreachable after 60 seconds at ${apiBase}. ` +
-      (lastError ? `Detail: ${lastError.message}` : "Connection timed out.")
-    );
+    let detail = "";
+    if (lastErrorType === "timeout") {
+      detail = `Server cold-start timed out after ${Math.floor(timeoutMs / 1000)}s. Please check Render dashboard.`;
+    } else if (lastErrorType === "cors_or_network") {
+      detail = `Backend API unreachable at ${apiBase}. Render free tier may be cold-starting, or CORS is not permitting ${window.location.origin}.`;
+    } else {
+      detail = lastErrorMessage || "Connection timed out.";
+    }
+
+    throw new Error(`Registration failed: ${detail}`);
   },
 
   /**

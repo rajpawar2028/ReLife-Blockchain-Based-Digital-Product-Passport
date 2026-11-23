@@ -130,6 +130,20 @@ const generalApiLimiter = rateLimit({
 // -------------------------------------------------------------
 // 5. API ROUTES & HEALTH CHECKS
 // -------------------------------------------------------------
+// Root probe handler for load balancers & monitoring tools
+app.get("/", (req, res, next) => {
+  if (req.headers.accept && req.headers.accept.includes("application/json")) {
+    return res.status(200).json({
+      ok: true,
+      service: "ReLife IPFS Backend API",
+      status: "healthy",
+      version: "1.0.0",
+      healthCheck: "/api/health",
+    });
+  }
+  next();
+});
+
 // Health check and environment diagnostic endpoints (unthrottled for cloud uptime monitors & Render probes)
 app.get("/api/health", (req, res) => {
   res.status(200).json({
