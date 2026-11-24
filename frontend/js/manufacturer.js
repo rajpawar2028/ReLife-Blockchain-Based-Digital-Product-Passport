@@ -260,14 +260,14 @@ document.addEventListener("DOMContentLoaded", async () => {
           });
         } catch (fetchErr) {
           throw new Error(
-            `File upload request failed to reach ${API_BASE}: ${fetchErr.message}. Verify that the backend is running and CORS allows ${window.location.origin}.`
+            `[Network / CORS Failure] File upload request failed to reach ${API_BASE}: ${fetchErr.message}. Verify that the backend is running and CORS allows ${window.location.origin}.`
           );
         }
 
         const fileData = await fileRes.json().catch(() => ({}));
         if (!fileRes.ok) {
-          const errMsg = fileData.details || fileData.error || `File upload failed with status ${fileRes.status}`;
-          throw new Error(errMsg);
+          const errMsg = fileData.details || fileData.error || `File upload failed with HTTP status ${fileRes.status}`;
+          throw new Error(`[HTTP Error ${fileRes.status}] ${errMsg}`);
         }
 
         imageUri = fileData.ipfsUri;
@@ -304,7 +304,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         });
       } catch (fetchErr) {
         throw new Error(
-          `Metadata upload request failed to reach ${API_BASE}: ${fetchErr.message}. Verify that the backend is running and CORS allows ${window.location.origin}.`
+          `[Network / CORS Failure] Metadata upload request failed to reach ${API_BASE}: ${fetchErr.message}. Verify that the backend is running and CORS allows ${window.location.origin}.`
         );
       }
 
@@ -313,7 +313,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const errorDetail = Array.isArray(metaResult.details)
           ? metaResult.details.join(", ")
           : (metaResult.details || metaResult.error || `Upload failed with status ${metaRes.status}`);
-        throw new Error(errorDetail);
+        throw new Error(`[HTTP Error ${metaRes.status}] ${errorDetail}`);
       }
 
       const metadataURI = metaResult.ipfsUri;

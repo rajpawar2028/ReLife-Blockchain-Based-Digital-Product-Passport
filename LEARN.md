@@ -1609,16 +1609,34 @@ When decoupling a Web3 frontend (hosted on **Vercel** at `https://relife-blockch
 
 ---
 
+## Global CORS Header Injection, Error Masks & Cross-Origin Diagnostics
+
+### 1. What Did We Build & Debug?
+1. **Pre-Route CORS Guarantee**: Mounted a global CORS middleware at the entry of the Express app so that `Access-Control-Allow-Origin` is injected on all requests, including unhandled routes (404) and exceptions (500).
+2. **Distinct Frontend Error Taxonomy**: Updated the frontend to distinctly report `[Timeout]`, `[Network / CORS Failure]`, and `[HTTP Error ${status}]`, ensuring users and developers immediately know whether a failure is due to a sleeping server, a CORS origin mismatch, or an invalid route.
+
+---
+
+### 2. Core Concepts Explained in Plain English
+
+#### Why Do Unhandled 404s and 500s Often Mask As CORS Errors?
+* If an error handler or 404 handler executes without CORS headers, the server actually sends an HTTP 404 or 500 response.
+* However, because the response lacks `Access-Control-Allow-Origin`, the browser's security layer refuses to pass the response to JavaScript. The browser treats the missing header as a security breach and reports `Failed to fetch`.
+* By writing CORS headers before any other middleware or route runs, every response (even a 404) includes the necessary permissions header, allowing the frontend to read the real HTTP status.
+
+---
+
 ### 3. Three Viva / Interview Questions You Should Be Able to Answer
 
-#### Q1: What is the fundamental difference between a network-level connection failure and an HTTP 404 response in JavaScript `fetch()`?
-> **Model Answer**: A network connection failure occurs when the client cannot establish a TCP/IP or TLS connection with the host (e.g. DNS failure, connection refused, or timeout). In JavaScript, `fetch()` rejects its Promise and throws a `TypeError: Failed to fetch`. An HTTP 404 response, however, is a successful network roundtrip where an HTTP server received the request, processed the routing table, and responded with status code 404. In `fetch()`, a 404 does not throw an error; the Promise resolves successfully with `response.ok === false` and `response.status === 404`.
+#### Q1: Why can an Express 404 or 500 response appear in the browser console as a CORS failure?
+> **Model Answer**: When an unhandled route reaches Express's default 404 handler, or an exception triggers an error handler that was registered without CORS headers, the response is dispatched without the `Access-Control-Allow-Origin` header. Because the browser enforces the Same-Origin Policy before parsing the response body or status code, it drops the response and raises a `TypeError: Failed to fetch`. To JavaScript, a 404 missing CORS headers is completely indistinguishable from a server that is completely offline.
 
-#### Q2: Why is it advantageous to order health check routes before static file middleware in an Express server?
-> **Model Answer**: Express evaluates routes and middleware sequentially in the order they are registered. If `express.static()` is mounted before `/api/health`, Express will perform filesystem I/O checks against the static files directory on every health check request to verify if a matching file exists. Placing health check endpoints at the very top of the middleware chain allows the server to short-circuit and respond immediately with HTTP 200 in sub-millisecond time, drastically reducing CPU load during cloud uptime monitor polling.
+#### Q2: How does placing a custom CORS middleware before Helmet and body parsers solve preflight and error masking issues?
+> **Model Answer**: Placing custom CORS header injection at the very beginning of the Express pipeline guarantees that `res.setHeader("Access-Control-Allow-Origin", origin)` is called for every incoming request matching the allowlist. Even if subsequent middleware (like JSON body parsing or rate limiting) throws an error, or if the request method is an `OPTIONS` preflight, the response headers already contain the authorized origin and methods, allowing the browser to approve the exchange and expose the true status code.
 
-#### Q3: Why does a missing `Access-Control-Allow-Origin` header on a 404 response cause modern browsers to report a CORS error instead of displaying the 404 status?
-> **Model Answer**: Under the W3C Cross-Origin Resource Sharing (CORS) specification, web browsers enforce the Same-Origin Policy regardless of the HTTP response status code. If an origin makes a cross-origin request and the response (whether 200, 404, or 500) lacks the `Access-Control-Allow-Origin` header matching the client's origin, the browser's security sandbox refuses to expose any response details to JavaScript. The browser suppresses the status code and throws a generic `TypeError: Failed to fetch`, preventing cross-origin data leakage.
+#### Q3: Why is it important for a frontend Web3 dApp to classify errors into Timeout, CORS/Network, and HTTP Error instead of showing a generic "Registration Failed"?
+> **Model Answer**: In a decentralized application, different errors require completely different user and developer actions. A "Timeout" means the user should wait for the cloud container to cold-start (~30–60s). A "Network/CORS" failure indicates either a DNS/network drop or that the frontend origin is not allowed in the backend allowlist. An "HTTP Error" (e.g. 400 Bad Request) indicates invalid input data. Distinguishing these states prevents user confusion and prevents users from repeatedly submitting failed transactions to the blockchain.
+
 
 
 

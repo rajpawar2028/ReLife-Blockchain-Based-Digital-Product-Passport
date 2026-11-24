@@ -21,20 +21,7 @@ const PORT = process.env.PORT || 5000;
 app.set("trust proxy", 1);
 
 // -------------------------------------------------------------
-// 1. SECURITY HEADERS (HELMET)
-// -------------------------------------------------------------
-// Enforces essential security headers (X-Content-Type-Options: nosniff,
-// X-Frame-Options: SAMEORIGIN, Strict-Transport-Security, X-Download-Options).
-// Sets contentSecurityPolicy: false so inline scripts/styles in static frontend HTML continue working.
-app.use(
-  helmet({
-    contentSecurityPolicy: false,
-    crossOriginResourcePolicy: { policy: "cross-origin" },
-  })
-);
-
-// -------------------------------------------------------------
-// 2. CORS ALLOWLIST CONFIGURATION
+// 1. CORS ALLOWLIST & GLOBAL PREFLIGHT (OPTIONS) HANDLER
 // -------------------------------------------------------------
 const allowedOrigins = [
   "https://relife-blockchain-based-digital-pro.vercel.app",
@@ -52,6 +39,47 @@ const allowedOrigins = [
 if (process.env.FRONTEND_URL) {
   allowedOrigins.push(process.env.FRONTEND_URL.replace(/\/+$/, ""));
 }
+
+// Global CORS Middleware - runs on EVERY incoming request before any route, 404, or error handler
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    const cleanOrigin = origin.replace(/\/+$/, "");
+    const isAllowed =
+      allowedOrigins.includes(cleanOrigin) ||
+      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(cleanOrigin) ||
+      /^https:\/\/relife-[a-z0-9-]+\.vercel\.app$/.test(cleanOrigin);
+
+    if (isAllowed) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+      res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+      res.setHeader(
+        "Access-Control-Allow-Headers",
+        "Content-Type, Authorization, X-Simulated-IP, X-Skip-Rate-Limit, Accept, Cache-Control"
+      );
+    }
+  }
+
+  // Preflight OPTIONS handler across all endpoints
+  if (req.method === "OPTIONS") {
+    return res.status(200).end();
+  }
+  next();
+});
+
+// -------------------------------------------------------------
+// 2. SECURITY HEADERS (HELMET)
+// -------------------------------------------------------------
+// Enforces essential security headers (X-Content-Type-Options: nosniff,
+// X-Frame-Options: SAMEORIGIN, Strict-Transport-Security, X-Download-Options).
+// Sets contentSecurityPolicy: false so inline scripts/styles in static frontend HTML continue working.
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 
 const corsOptions = {
   origin: function (origin, callback) {
@@ -84,7 +112,7 @@ const corsOptions = {
     "Cache-Control"
   ],
   credentials: true,
-  optionsSuccessStatus: 200, // Preflight OPTIONS response for legacy browsers
+  optionsSuccessStatus: 200,
 };
 app.use(cors(corsOptions));
 
@@ -185,7 +213,17 @@ app.post("/api/test/reset-rate-limit", (req, res) => {
 });
 
 // -------------------------------------------------------------
-// 6. CENTRALIZED ERROR HANDLING (NEVER LEAKS STACK TRACES)
+// 6. CATCH-ALL 404 HANDLER (JSON WITH CORS HEADERS)
+// -------------------------------------------------------------
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    error: `Route not found: ${req.method} ${req.originalUrl}`,
+  });
+});
+
+// -------------------------------------------------------------
+// 7. CENTRALIZED ERROR HANDLING (NEVER LEAKS STACK TRACES)
 // -------------------------------------------------------------
 app.use((err, req, res, next) => {
   // CORS origin violations

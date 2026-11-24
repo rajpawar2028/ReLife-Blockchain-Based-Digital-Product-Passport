@@ -546,11 +546,11 @@ const ReLifeWallet = {
 
     let detail = "";
     if (lastErrorType === "timeout") {
-      detail = `Server cold-start timed out after ${Math.floor(timeoutMs / 1000)}s. Please check Render dashboard.`;
+      detail = `[Timeout] Server did not respond within ${Math.floor(timeoutMs / 1000)}s at ${apiBase}. Render free instance is likely asleep or cold-starting.`;
     } else if (lastErrorType === "cors_or_network") {
-      detail = `Backend API unreachable at ${apiBase}. Render free tier may be cold-starting, or CORS is not permitting ${window.location.origin}.`;
+      detail = `[Network / CORS Failure] Unable to connect to ${apiBase}. Browser blocked request due to unreachable server or missing CORS Access-Control-Allow-Origin header for ${window.location.origin}.`;
     } else {
-      detail = lastErrorMessage || "Connection timed out.";
+      detail = `[Connection Error] ${lastErrorMessage || "Backend unreachable."}`;
     }
 
     throw new Error(`Registration failed: ${detail}`);
