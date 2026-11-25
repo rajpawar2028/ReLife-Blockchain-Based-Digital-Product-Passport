@@ -270,24 +270,84 @@ npm run coverage
 ```
 *Executes all 334 tests across 26 test suites covering contract logic, gas benchmarks, state machines, warranty validity, 2-step ownership transfers, authenticity secret verification, backend API validation, failure cases, and frontend integration (100% Statement Coverage, 99.02% Line Coverage).*
 
-### 6. (Optional) Deploy to Sepolia Testnet
-To deploy a new contract instance to Ethereum Sepolia:
+### 6. Sepolia Faucet & Deployment Steps
+
+#### Step 6.1: Acquire Sepolia Testnet ETH
+To deploy smart contracts and submit transactions on Ethereum Sepolia, you need a small amount of test ETH to cover gas fees. You can obtain free Sepolia ETH from any of these official faucets:
+* **Google Cloud Web3 Faucet**: [https://cloud.google.com/application/web3/faucet/ethereum/sepolia](https://cloud.google.com/application/web3/faucet/ethereum/sepolia) (Instant, 0.05 Sepolia ETH/day)
+* **Alchemy Sepolia Faucet**: [https://sepoliafaucet.com](https://sepoliafaucet.com) (0.5 Sepolia ETH/day with free Alchemy account)
+* **QuickNode Sepolia Faucet**: [https://faucet.quicknode.com/ethereum/sepolia](https://faucet.quicknode.com/ethereum/sepolia)
+* **PoW Faucet**: [https://sepolia-faucet.pk910.de](https://sepolia-faucet.pk910.de) (Mining in browser, no account needed)
+
+#### Step 6.2: Deploy Smart Contract to Sepolia
 ```bash
 npx hardhat run scripts/deploy.js --network sepolia
 ```
+*This script compiles the contract, broadcasts the deployment transaction to Sepolia, confirms bytecode on-chain, and automatically saves the deployed address and ABI to `frontend/contract-data.json`, `frontend/contract-data.js`, and `frontend/js/contract-address.json`.*
 
-### 7. Start the Local Server
+#### Step 6.3: Verify Contract on Etherscan
 ```bash
-npm start
+npx hardhat verify --network sepolia <DEPLOYED_CONTRACT_ADDRESS>
 ```
-The server starts at `http://localhost:5000`, simultaneously serving the backend IPFS proxy and all frontend web portals.
+*Example verified contract on Sepolia: [`0x9600044e058A7492F0121b34E0bbe4cBFD707149`](https://sepolia.etherscan.io/address/0x9600044e058A7492F0121b34E0bbe4cBFD707149#code)*
 
-### 🌐 Cloud Deployment (Render Backend + Vercel Frontend)
-When deploying to cloud platforms:
-* **Frontend**: Hosted on [Vercel](https://vercel.com) (static SPA with live Ethers.js integration).
-* **Backend**: Hosted on [Render](https://render.com) Web Service.
-* **Cold Starts & Keep-Alive Pinger**:
-  Render free tier instances spin down after 15 minutes of inactivity. When a request arrives, booting the instance takes **30–60 seconds**. ReLife includes automatic cold-start detection that polls `/api/health` and displays a wake-up status before minting. To eliminate cold starts completely, you can set up a free keep-alive monitor (e.g. [cron-job.org](https://cron-job.org) or [UptimeRobot](https://uptimerobot.com)) to ping `https://<your-backend>.onrender.com/api/health` every 10 minutes.
+### 7. Backend & Frontend Run Steps
+
+#### Backend Run Steps
+1. Navigate to `/backend` or run from project root:
+   ```bash
+   npm run backend
+   # or: cd backend && npm start
+   ```
+2. Verify backend endpoints locally using `curl`:
+   ```bash
+   # Test health check:
+   curl -i http://localhost:5000/api/health
+
+   # Test metadata IPFS upload:
+   curl -i -X POST http://localhost:5000/api/upload \
+     -H "Content-Type: application/json" \
+     -d '{"name":"EcoPhone 15","brand":"CircuTech","serialNumber":"SN-TEST-001"}'
+   ```
+
+#### Frontend Run Steps
+* **Local Development**:
+  ```bash
+  npm start
+  ```
+  Open [http://localhost:5000](http://localhost:5000) (serves both Express backend API and frontend portals).
+* **Standalone Static Serving**:
+  ```bash
+  npx serve frontend -p 3000
+  ```
+  Open [http://localhost:3000](http://localhost:3000) (connects to Render or local backend).
+
+### 🌐 Cloud Deployment Setup (Render & Vercel)
+
+#### Render Backend Web Service Setup
+1. Create a new **Web Service** on [Render](https://render.com) connected to your GitHub repository.
+2. Configure settings:
+   * **Root Directory**: *(Leave EMPTY / BLANK)*
+   * **Build Command**: `npm install`
+   * **Start Command**: `npm start` (or `node backend/server.js`)
+3. Set **Environment Variables** in the Render Dashboard:
+   | Variable | Value / Description | Required |
+   | :--- | :--- | :--- |
+   | `PINATA_JWT` | Your Pinata API JWT token | Yes |
+   | `PINATA_GATEWAY` | `https://gateway.pinata.cloud/ipfs/` | Yes |
+   | `NODE_ENV` | `production` | Yes |
+   | `PORT` | `10000` (Render sets automatically) | Yes |
+   | `FRONTEND_URL` | `https://relife-blockchain-based-digital-pro.vercel.app` | Optional |
+
+#### Vercel Frontend Deployment Setup
+1. Import your GitHub repository into [Vercel](https://vercel.com).
+2. Configure settings:
+   * **Root Directory**: `frontend`
+   * **Framework Preset**: *Other*
+   * **Build Command**: *(None required - vanilla HTML/CSS/JS)*
+   * **Output Directory**: `.`
+3. **Configuration**:
+   All frontend portals import `js/config.js` which sets `API_BASE_URL` to `https://relife-blockchain-backend.onrender.com` and `CHAIN_ID` to `11155111`. No build-time environment variables are needed on Vercel.
 
 ---
 

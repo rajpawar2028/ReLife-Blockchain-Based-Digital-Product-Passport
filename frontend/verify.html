@@ -2,18 +2,168 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="refresh" content="0; url=product.html">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ReLife - Product Passport Verification</title>
-  <script>
-    // Seamlessly forward query parameters (?id=N, etc.) to product.html
-    window.location.replace("product.html" + window.location.search + window.location.hash);
-  </script>
+  <title>ReLife - Public Product Passport Verification</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/styles.css">
 </head>
-<body style="background: #0b1120; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0;">
-  <div style="text-align: center;">
-    <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Redirecting to Verification Portal...</h2>
-    <p style="color: #94a3b8;">Click <a href="product.html" style="color: #10b981; text-decoration: underline;">here</a> if you are not redirected automatically.</p>
-  </div>
+<body>
+  <!-- Navigation Bar -->
+  <nav class="navbar" role="navigation" aria-label="Main Navigation">
+    <div class="nav-container">
+      <a href="index.html" class="nav-brand">
+        <span class="logo-icon">&#x267B;</span>
+        <span>ReLife DPP</span>
+      </a>
+      <div class="nav-links">
+        <a href="index.html">Home</a>
+        <a href="dashboard.html">Dashboard</a>
+        <a href="manufacturer.html">Manufacturer</a>
+        <a href="repair.html">Repair Center</a>
+        <a href="owner.html">Owner</a>
+        <a href="recycler.html">Recycler</a>
+        <a href="admin.html">Admin</a>
+        <a href="verify.html" class="active">Verify</a>
+      </div>
+      <div class="nav-wallet">
+        <span class="badge badge-success">&#x2713; Public Verification (No Wallet Needed)</span>
+      </div>
+    </div>
+  </nav>
+
+  <main class="main-container">
+    <!-- Header -->
+    <div style="text-align: center; margin-bottom: 2rem;">
+      <h1 style="font-size: 2rem; font-weight: 700; margin-bottom: 0.5rem; letter-spacing: -0.5px;">
+        Public Digital Product Passport Verification
+      </h1>
+      <p style="color: var(--text-muted); max-width: 650px; margin: 0 auto; font-size: 0.95rem;">
+        Verify product authenticity, manufacturer origin, immutable maintenance history, and lifecycle status directly from Ethereum Sepolia.
+      </p>
+    </div>
+
+    <!-- Search / Lookup Bar -->
+    <div class="card" style="max-width: 720px; margin: 0 auto 2rem auto;">
+      <form id="verifySearchForm" style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+        <input 
+          type="number" 
+          id="searchProductId" 
+          placeholder="Enter Product Passport ID (e.g. 1)" 
+          min="1" 
+          required 
+          style="flex: 1; min-width: 200px;"
+          aria-label="Product ID"
+        >
+        <button type="submit" id="btnVerify" class="btn btn-primary" style="padding: 0.65rem 1.75rem;">
+          <span id="searchSpinner" class="spinner" style="display: none;"></span>
+          Verify Passport
+        </button>
+      </form>
+    </div>
+
+    <!-- Status Alert Card -->
+    <div id="verifyAlert" class="alert" style="display: none; max-width: 720px; margin: 0 auto 1.5rem auto;" role="alert"></div>
+
+    <!-- Skeleton Loading Placeholder -->
+    <div id="verifySkeleton" style="display: none; max-width: 900px; margin: 0 auto;">
+      <div class="card skeleton skeleton-card" style="height: 180px; margin-bottom: 1.5rem;"></div>
+      <div class="card skeleton skeleton-card" style="height: 240px;"></div>
+    </div>
+
+    <!-- Verification Result Card -->
+    <div id="passportResultCard" class="card" style="display: none; max-width: 900px; margin: 0 auto;">
+      <div class="card-header" style="flex-wrap: wrap; gap: 0.75rem;">
+        <div>
+          <span id="passportIdBadge" class="badge badge-info" style="margin-bottom: 0.35rem;">Product #1</span>
+          <h2 id="passportProductName" class="card-title" style="font-size: 1.4rem;">EcoPhone 15 Pro</h2>
+        </div>
+        <div id="passportStatusBadgeContainer">
+          <span id="passportStatusBadge" class="badge badge-success">&#x2713; Authentic & Active</span>
+        </div>
+      </div>
+
+      <!-- Overview Grid -->
+      <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); margin-bottom: 1.5rem;">
+        <div style="background: var(--dark); padding: 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--dark-border);">
+          <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Serial Number</div>
+          <div id="resSerialNumber" style="font-weight: 700; color: var(--text-main); font-family: monospace; font-size: 0.95rem;">-</div>
+        </div>
+
+        <div style="background: var(--dark); padding: 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--dark-border);">
+          <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Brand / Model</div>
+          <div id="resBrandModel" style="font-weight: 600; color: var(--text-main); font-size: 0.95rem;">-</div>
+        </div>
+
+        <div style="background: var(--dark); padding: 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--dark-border);">
+          <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Manufacturer</div>
+          <div id="resManufacturer" style="font-weight: 600; color: var(--primary); font-family: monospace; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis;">-</div>
+        </div>
+
+        <div style="background: var(--dark); padding: 0.85rem; border-radius: var(--radius-md); border: 1px solid var(--dark-border);">
+          <div style="font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase;">Current Custody</div>
+          <div id="resCurrentOwner" style="font-weight: 600; color: var(--secondary); font-family: monospace; font-size: 0.85rem; overflow: hidden; text-overflow: ellipsis;">-</div>
+        </div>
+      </div>
+
+      <!-- QR Code & Verification Sharing Section -->
+      <div style="background: rgba(15, 23, 42, 0.75); border: 1px solid var(--dark-border); border-radius: var(--radius-md); padding: 1.25rem; margin-bottom: 1.5rem; display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center;">
+        <div id="qrcodeContainer" style="background: white; padding: 0.75rem; border-radius: var(--radius-sm); display: inline-flex; justify-content: center; align-items: center;">
+          <!-- QR code rendered here -->
+        </div>
+        <div style="flex: 1; min-width: 240px;">
+          <h3 style="font-size: 1.05rem; margin-bottom: 0.35rem; color: var(--text-main);">Decentralized Passport QR</h3>
+          <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.75rem;">
+            Scan with any mobile camera to verify hardware origin or embed on physical product packaging.
+          </p>
+          <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+            <button id="btnDownloadQr" class="btn btn-outline" type="button">
+              &#x1F4BE; Download QR Code (PNG)
+            </button>
+            <a id="btnEtherscanTx" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">
+              View on Etherscan &rarr;
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- IPFS Decentralized Metadata Section -->
+      <div style="background: var(--dark); border-radius: var(--radius-md); padding: 1rem; border: 1px solid var(--dark-border); margin-bottom: 1.5rem;">
+        <h3 style="font-size: 0.95rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-muted); text-transform: uppercase;">
+          Decentralized IPFS Metadata URI
+        </h3>
+        <div style="display: flex; gap: 0.5rem; align-items: center; word-break: break-all;">
+          <code id="resIpfsUri" style="color: #38bdf8; font-size: 0.85rem; flex: 1;">-</code>
+          <a id="btnIpfsGateway" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem; white-space: nowrap;">
+            Open Gateway &rarr;
+          </a>
+        </div>
+      </div>
+
+      <!-- Lifecycle History Tabs / Timeline -->
+      <div>
+        <h3 style="font-size: 1.05rem; font-weight: 600; margin-bottom: 0.75rem;">Immutable Maintenance & Custody Log</h3>
+        <div id="repairRecordsList" style="font-size: 0.875rem; color: var(--text-muted);">
+          Loading repair history...
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <p>ReLife DPP &copy; 2026 &mdash; Built on Ethereum Sepolia, Hardhat, Ethers.js & Pinata IPFS</p>
+  </footer>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <!-- External Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- Global Config -->
+  <script src="js/config.js"></script>
+  <!-- Contract Configuration -->
+  <script src="contract-data.js?v=1795580000000"></script>
+  <!-- Public Verification Page Logic -->
+  <script src="js/verify.js?v=1795580000000"></script>
 </body>
 </html>

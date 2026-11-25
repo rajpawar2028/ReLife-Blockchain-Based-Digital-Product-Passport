@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReLife - Role-Aware Operations Dashboard</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <!-- Navigation Bar -->
+  <nav class="navbar" role="navigation" aria-label="Main Navigation">
+    <div class="nav-container">
+      <a href="index.html" class="nav-brand">
+        <span class="logo-icon">&#x267B;</span>
+        <span>ReLife DPP</span>
+      </a>
+      <div class="nav-links">
+        <a href="index.html">Home</a>
+        <a href="dashboard.html" class="active">Dashboard</a>
+        <a href="manufacturer.html">Manufacturer</a>
+        <a href="repair.html">Repair Center</a>
+        <a href="owner.html">Owner</a>
+        <a href="recycler.html">Recycler</a>
+        <a href="admin.html">Admin</a>
+        <a href="verify.html">Verify</a>
+      </div>
+      <div class="nav-wallet">
+        <button id="connectWalletBtn" class="btn btn-primary" type="button">Connect Wallet</button>
+        <span id="walletBadge" class="badge badge-info" style="display: none;"></span>
+      </div>
+    </div>
+  </nav>
+
+  <main class="main-container">
+    <!-- Network Warning Alert -->
+    <div id="wrongNetworkAlert" class="alert alert-warning" style="display: none;">
+      <strong>Network Notice:</strong> You are not connected to Ethereum Sepolia Testnet.
+      <button id="btnSwitchNetwork" class="btn btn-secondary" style="margin-left: 1rem; padding: 0.25rem 0.75rem;">Switch to Sepolia</button>
+    </div>
+
+    <!-- Header & Welcome -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h1 class="card-title" style="font-size: 1.5rem;">Circular Lifecycle Dashboard</h1>
+          <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.25rem;">
+            Role-aware workspace for manufacturing, maintenance, ownership provenance, and decommissioning.
+          </p>
+        </div>
+        <div id="roleBadgesContainer" style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+          <span class="badge badge-info" id="statusBadge">Checking Wallet...</span>
+        </div>
+      </div>
+      <div id="walletSummary" style="font-size: 0.9rem; color: var(--text-muted);">
+        Connected Account: <code id="activeAccountDisplay" style="color: var(--primary);">Not Connected</code>
+      </div>
+    </div>
+
+    <!-- Role-Based Navigation Cards Grid -->
+    <div class="form-grid" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));">
+      <!-- Manufacturer Card -->
+      <div class="card" id="cardManufacturer" style="display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <h2 style="font-size: 1.15rem; color: var(--text-main);">Manufacturer Portal</h2>
+            <span class="badge badge-success">MANUFACTURER_ROLE</span>
+          </div>
+          <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+            Mint digital product passports, upload bill of materials, set cryptographic authenticity secrets, and attach initial manufacturer warranties.
+          </p>
+        </div>
+        <a href="manufacturer.html" class="btn btn-outline" style="width: 100%;">Open Manufacturer Portal &rarr;</a>
+      </div>
+
+      <!-- Repair Center Card -->
+      <div class="card" id="cardRepair" style="display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <h2 style="font-size: 1.15rem; color: var(--text-main);">Repair Center Portal</h2>
+            <span class="badge badge-info">REPAIR_CENTER_ROLE</span>
+          </div>
+          <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+            Log maintenance events, component replacements, diagnostic proofs, and toggle products into and out of repair status.
+          </p>
+        </div>
+        <a href="repair.html" class="btn btn-outline" style="width: 100%;">Open Repair Portal &rarr;</a>
+      </div>
+
+      <!-- Owner Portal Card -->
+      <div class="card" id="cardOwner" style="display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <h2 style="font-size: 1.15rem; color: var(--text-main);">Owner & Resale Portal</h2>
+            <span class="badge badge-warning">CURRENT_OWNER</span>
+          </div>
+          <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+            Manage custody of your electronics, initiate secure 2-step ownership transfers, accept custody, and review warranty validity.
+          </p>
+        </div>
+        <a href="owner.html" class="btn btn-outline" style="width: 100%;">Open Owner Portal &rarr;</a>
+      </div>
+
+      <!-- Recycler Card -->
+      <div class="card" id="cardRecycler" style="display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <h2 style="font-size: 1.15rem; color: var(--text-main);">Recycler Portal</h2>
+            <span class="badge badge-danger">RECYCLER_ROLE</span>
+          </div>
+          <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+            Permanently retire end-of-life products from circulation, log reclaimed material percentages, and attach destruction certificates.
+          </p>
+        </div>
+        <a href="recycler.html" class="btn btn-outline" style="width: 100%;">Open Recycler Portal &rarr;</a>
+      </div>
+
+      <!-- Admin Governance Card -->
+      <div class="card" id="cardAdmin" style="display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <h2 style="font-size: 1.15rem; color: var(--text-main);">Admin Governance</h2>
+            <span class="badge badge-info">ADMIN_ROLE</span>
+          </div>
+          <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+            Onboard verified ecosystem participants, grant or revoke AccessControl roles, and execute emergency circuit breaker pausing.
+          </p>
+        </div>
+        <a href="admin.html" class="btn btn-outline" style="width: 100%;">Open Admin Portal &rarr;</a>
+      </div>
+
+      <!-- Public Verification Card -->
+      <div class="card" style="display: flex; flex-direction: column; justify-content: space-between;">
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <h2 style="font-size: 1.15rem; color: var(--text-main);">Public Verification</h2>
+            <span class="badge badge-success">PUBLIC / NO WALLET</span>
+          </div>
+          <p style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem;">
+            Scan QR codes, verify physical serial numbers, inspect immutable repair timelines, and test off-chain authenticity secrets.
+          </p>
+        </div>
+        <a href="verify.html" class="btn btn-primary" style="width: 100%;">Open Verification Portal &rarr;</a>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <p>ReLife DPP &copy; 2026 &mdash; Built on Ethereum Sepolia, Hardhat, Ethers.js & Pinata IPFS</p>
+  </footer>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toastContainer" aria-live="polite"></div>
+
+  <!-- Ethers.js v6 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.5/ethers.umd.min.js"></script>
+  <!-- Global Config -->
+  <script src="js/config.js"></script>
+  <!-- Contract Configuration -->
+  <script src="contract-data.js?v=1795580000000"></script>
+  <!-- Wallet Manager -->
+  <script src="js/wallet.js?v=1795580000000"></script>
+  <!-- Contract Helper -->
+  <script src="js/contract.js?v=1795580000000"></script>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      const connectBtn = document.getElementById("connectWalletBtn");
+      const walletBadge = document.getElementById("walletBadge");
+      const statusBadge = document.getElementById("statusBadge");
+      const activeAccountDisplay = document.getElementById("activeAccountDisplay");
+      const roleBadgesContainer = document.getElementById("roleBadgesContainer");
+      const wrongNetworkAlert = document.getElementById("wrongNetworkAlert");
+      const btnSwitchNetwork = document.getElementById("btnSwitchNetwork");
+
+      async function refreshDashboard() {
+        if (!window.ethereum) {
+          statusBadge.className = "badge badge-warning";
+          statusBadge.innerText = "MetaMask Missing";
+          return;
+        }
+
+        const accounts = await window.ethereum.request({ method: "eth_accounts" });
+        if (!accounts || accounts.length === 0) {
+          statusBadge.className = "badge badge-info";
+          statusBadge.innerText = "Wallet Disconnected";
+          activeAccountDisplay.innerText = "Not Connected (Click Connect Wallet)";
+          return;
+        }
+
+        const account = accounts[0];
+        activeAccountDisplay.innerText = `${account.slice(0, 6)}...${account.slice(-4)}`;
+        walletBadge.style.display = "inline-flex";
+        walletBadge.innerText = `${account.slice(0, 6)}...${account.slice(-4)}`;
+        connectBtn.innerText = "Connected";
+        connectBtn.classList.replace("btn-primary", "btn-secondary");
+
+        // Role Detection
+        try {
+          const contract = ReLifeWallet.contract || ReLifeWallet.getReadOnlyContract();
+          if (!contract) return;
+
+          roleBadgesContainer.innerHTML = "";
+          let rolesFound = 0;
+
+          const DEFAULT_ADMIN_ROLE = "0x0000000000000000000000000000000000000000000000000000000000000000";
+          const MANUFACTURER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("MANUFACTURER_ROLE"));
+          const REPAIR_CENTER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("REPAIR_CENTER_ROLE"));
+          const RECYCLER_ROLE = ethers.keccak256(ethers.toUtf8Bytes("RECYCLER_ROLE"));
+
+          const [isAdmin, isMfg, isRepair, isRecycler] = await Promise.all([
+            contract.hasRole(DEFAULT_ADMIN_ROLE, account).catch(() => false),
+            contract.hasRole(MANUFACTURER_ROLE, account).catch(() => false),
+            contract.hasRole(REPAIR_CENTER_ROLE, account).catch(() => false),
+            contract.hasRole(RECYCLER_ROLE, account).catch(() => false),
+          ]);
+
+          if (isAdmin) {
+            roleBadgesContainer.innerHTML += `<span class="badge badge-info">&#x1F6E1; Admin</span>`;
+            rolesFound++;
+          }
+          if (isMfg) {
+            roleBadgesContainer.innerHTML += `<span class="badge badge-success">&#x1F3ED; Manufacturer</span>`;
+            rolesFound++;
+          }
+          if (isRepair) {
+            roleBadgesContainer.innerHTML += `<span class="badge badge-warning">&#x1F527; Repair Center</span>`;
+            rolesFound++;
+          }
+          if (isRecycler) {
+            roleBadgesContainer.innerHTML += `<span class="badge badge-danger">&#x267B; Recycler</span>`;
+            rolesFound++;
+          }
+
+          if (rolesFound === 0) {
+            roleBadgesContainer.innerHTML = `<span class="badge badge-success">&#x1F464; Product Owner / Public User</span>`;
+          }
+        } catch (e) {
+          console.error("Failed to query roles:", e);
+        }
+      }
+
+      if (connectBtn) {
+        connectBtn.addEventListener("click", async () => {
+          try {
+            await ReLifeWallet.connect();
+            await refreshDashboard();
+          } catch (err) {
+            console.error("Connect failed:", err);
+          }
+        });
+      }
+
+      if (btnSwitchNetwork) {
+        btnSwitchNetwork.addEventListener("click", async () => {
+          await ReLifeWallet.switchNetwork();
+        });
+      }
+
+      if (window.ethereum) {
+        window.ethereum.on("accountsChanged", refreshDashboard);
+        window.ethereum.on("chainChanged", refreshDashboard);
+      }
+
+      await refreshDashboard();
+    });
+  </script>
+</body>
+</html>

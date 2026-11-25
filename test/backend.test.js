@@ -148,5 +148,36 @@ describe("Phase 4: Backend Express API & IPFS Pinata Service", function () {
       }
     });
   });
+
+  describe("5. Standard Specification Endpoint (/api/upload)", function () {
+    it("should accept product metadata JSON and return { cid: 'ipfs://<CID>' }", async function () {
+      const payload = {
+        name: "EcoSmart Phone",
+        brand: "CircuTech",
+        model: "ESP-2026",
+        serialNumber: "SN-ESP-991100",
+        category: "Electronics & Smartphones",
+        warrantyMonths: 24,
+      };
+
+      const res = await request(app)
+        .post("/api/upload")
+        .set("x-skip-rate-limit", "true")
+        .send(payload);
+      expect(res.status).to.equal(200);
+      expect(res.body.success).to.be.true;
+      expect(res.body).to.have.property("cid");
+      expect(res.body.cid).to.be.a("string").that.satisfies((s) => s.startsWith("ipfs://"));
+    });
+
+    it("should reject empty request body on /api/upload with 400 Bad Request", async function () {
+      const res = await request(app)
+        .post("/api/upload")
+        .set("x-skip-rate-limit", "true")
+        .send({});
+      expect(res.status).to.equal(400);
+      expect(res.body.success).to.be.false;
+    });
+  });
 });
 

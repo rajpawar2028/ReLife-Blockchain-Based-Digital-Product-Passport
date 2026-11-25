@@ -215,8 +215,37 @@ const ReLifeWallet = {
     } catch (err) {
       const friendlyMsg = this.parseError(err);
       console.error("Wallet connection failed:", err);
+      if (err.code === 4001 || err.code === "ACTION_REJECTED") {
+        this.showToast("Connection request was rejected in MetaMask.", "danger");
+      }
       throw new Error(friendlyMsg);
     }
+  },
+
+  /**
+   * Displays an accessible floating toast notification
+   * @param {string} message - Text or HTML message to display
+   * @param {"info"|"success"|"warning"|"danger"} [type="info"] - Notification category
+   * @param {number} [duration=4000] - Display duration in milliseconds
+   */
+  showToast(message, type = "info", duration = 4000) {
+    if (typeof document === "undefined") return;
+    let container = document.getElementById("toastContainer");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "toastContainer";
+      container.className = "toast-container";
+      document.body.appendChild(container);
+    }
+    const toast = document.createElement("div");
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `<span>${message}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => {
+      if (toast.parentNode) {
+        toast.parentNode.removeChild(toast);
+      }
+    }, duration);
   },
 
   /**
@@ -546,11 +575,11 @@ const ReLifeWallet = {
 
     let detail = "";
     if (lastErrorType === "timeout") {
-      detail = `[Timeout] Server did not respond within ${Math.floor(timeoutMs / 1000)}s at ${apiBase}. Render free instance is likely asleep or cold-starting.`;
+      detail = `Backend is waking up, please wait 60 seconds and try again. (Timeout probing ${apiBase}/api/health)`;
     } else if (lastErrorType === "cors_or_network") {
-      detail = `[Network / CORS Failure] Unable to connect to ${apiBase}. Browser blocked request due to unreachable server or missing CORS Access-Control-Allow-Origin header for ${window.location.origin}.`;
+      detail = `Backend is waking up, please wait 60 seconds and try again. (Unable to connect to ${apiBase}/api/health)`;
     } else {
-      detail = `[Connection Error] ${lastErrorMessage || "Backend unreachable."}`;
+      detail = `Backend is waking up, please wait 60 seconds and try again. (${lastErrorMessage || "Backend unreachable."})`;
     }
 
     throw new Error(`Registration failed: ${detail}`);

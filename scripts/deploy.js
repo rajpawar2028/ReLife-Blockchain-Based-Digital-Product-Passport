@@ -97,6 +97,23 @@ window.RELIFE_CONFIG = ${JSON.stringify(contractData, null, 2)};
     const backendJsonPath = path.join(backendDir, "contract-data.json");
     fs.writeFileSync(backendJsonPath, JSON.stringify(contractData, null, 2));
     console.log(`Saved backend JSON to:  ${backendJsonPath}`);
+
+    // 4. Write frontend/js/contract-address.json
+    const contractAddressJsonPath = path.join(frontendDir, "js", "contract-address.json");
+    fs.writeFileSync(
+      contractAddressJsonPath,
+      JSON.stringify(
+        {
+          address: contractAddress,
+          network: hre.network.name,
+          chainId: Number(network.chainId),
+          deployedAt: contractData.deployedAt,
+        },
+        null,
+        2
+      )
+    );
+    console.log(`Saved contract address JSON to: ${contractAddressJsonPath}`);
   } else {
     // Local / Hardhat runs write to a separate file that the frontend never reads
     const localhostJsonPath = path.join(__dirname, "..", "deployment.localhost.json");

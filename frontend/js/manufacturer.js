@@ -242,29 +242,50 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     try {
       // 0. Pre-flight health check & wake up cold server (Render free tier)
-      await ReLifeWallet.waitForBackend((msg) => showStatus("info", msg), 60000);
+      // Soft check: probe up to 15s to wake sleeping server, but do not block registration if probe times out
+      try {
+        await ReLifeWallet.waitForBackend((msg) => showStatus("info", msg), 15000);
+      } catch (wakeErr) {
+        console.warn("[Manufacturer] Backend wake-up probe warning (continuing to direct upload):", wakeErr);
+        showStatus("info", "Proceeding with product passport metadata upload to IPFS...");
+      }
 
       let imageUri = "";
 
       // 1. Upload optional image or document file to IPFS
       if (fileInput.files.length > 0) {
-        showStatus("info", "Uploading product document/photo to IPFS via backend...");
+        showStatus("info", "Step 1/3: Uploading product document/photo to IPFS via backend...");
         const formData = new FormData();
         formData.append("file", fileInput.files[0]);
 
         let fileRes;
         try {
+          const fileController = new AbortController();
+          const fileTimeout = setTimeout(() => fileController.abort(), 60000);
           fileRes = await fetch(`${API_BASE}/api/ipfs/upload-file`, {
             method: "POST",
+            headers: { Accept: "application/json" },
             body: formData,
+            signal: fileController.signal,
           });
+          clearTimeout(fileTimeout);
         } catch (fetchErr) {
+          if (fetchErr.name === "AbortError") {
+            throw new Error(`[Timeout] File upload timed out after 60s at ${API_BASE}/api/ipfs/upload-file.`);
+          }
           throw new Error(
-            `[Network / CORS Failure] File upload request failed to reach ${API_BASE}: ${fetchErr.message}. Verify that the backend is running and CORS allows ${window.location.origin}.`
+            `[Network / CORS Failure] File upload request failed to reach ${API_BASE}/api/ipfs/upload-file: ${fetchErr.message}. Verify that the Render backend is running and CORS allows ${window.location.origin}.`
           );
         }
 
-        const fileData = await fileRes.json().catch(() => ({}));
+        const rawFileText = await fileRes.text();
+        let fileData = {};
+        try {
+          fileData = JSON.parse(rawFileText);
+        } catch (_) {
+          fileData = { error: rawFileText || fileRes.statusText };
+        }
+
         if (!fileRes.ok) {
           const errMsg = fileData.details || fileData.error || `File upload failed with HTTP status ${fileRes.status}`;
           throw new Error(`[HTTP Error ${fileRes.status}] ${errMsg}`);
@@ -282,33 +303,64 @@ document.addEventListener("DOMContentLoaded", async () => {
         name,
         description,
         brand,
-        model,
+        model: model || "",
         serialNumber,
-        category,
-        materials: materials ? materials.split(",").map((m) => m.trim()) : [],
+        category: category || "Electronics & Smartphones",
+        materials: materials ? materials.split(",").map((m) => m.trim()).filter(Boolean) : [],
         carbonFootprintKg: Number(carbonFootprintKg) || 0,
         originCountry: originCountry || "Not Specified",
         recyclabilityScore: Number(recyclabilityScore) || 0,
-        imageUri,
-        warrantyMonths,
-        warrantyCoverage,
-        warrantyUnit: unitVal,
+        imageUri: imageUri || "",
+        warrantyMonths: Math.max(0, Math.min(120, parseInt(warrantyMonths, 10) || 0)),
+        warrantyCoverage: warrantyCoverage || (Number(warrantyMonths) > 0 ? "Standard Manufacturer Warranty" : "No Warranty"),
+        warrantyUnit: unitVal || "months",
+        manufacturerAddress: userAccount || "",
       };
 
       let metaRes;
       try {
-        metaRes = await fetch(`${API_BASE}/api/ipfs/upload-metadata`, {
+        const metaController = new AbortController();
+        const metaTimeout = setTimeout(() => metaController.abort(), 30000);
+        // Primary: /api/upload (standard spec), with fallback to /api/ipfs/upload-metadata
+        let targetUploadUrl = `${API_BASE}/api/upload`;
+        metaRes = await fetch(targetUploadUrl, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+          },
           body: JSON.stringify(metadataPayload),
+          signal: metaController.signal,
         });
+        clearTimeout(metaTimeout);
+
+        if (metaRes.status === 404) {
+          metaRes = await fetch(`${API_BASE}/api/ipfs/upload-metadata`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Accept": "application/json",
+            },
+            body: JSON.stringify(metadataPayload),
+          });
+        }
       } catch (fetchErr) {
+        if (fetchErr.name === "AbortError") {
+          throw new Error(`[Timeout] Metadata upload timed out after 30s at ${API_BASE}/api/upload.`);
+        }
         throw new Error(
-          `[Network / CORS Failure] Metadata upload request failed to reach ${API_BASE}: ${fetchErr.message}. Verify that the backend is running and CORS allows ${window.location.origin}.`
+          `[Network / CORS Failure] Metadata upload request failed to reach ${API_BASE}: ${fetchErr.message}. Verify that the Render backend is running and CORS allows ${window.location.origin}.`
         );
       }
 
-      const metaResult = await metaRes.json().catch(() => ({}));
+      const rawMetaText = await metaRes.text();
+      let metaResult = {};
+      try {
+        metaResult = JSON.parse(rawMetaText);
+      } catch (_) {
+        metaResult = { error: rawMetaText || metaRes.statusText };
+      }
+
       if (!metaRes.ok) {
         const errorDetail = Array.isArray(metaResult.details)
           ? metaResult.details.join(", ")
@@ -316,7 +368,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         throw new Error(`[HTTP Error ${metaRes.status}] ${errorDetail}`);
       }
 
-      const metadataURI = metaResult.ipfsUri;
+      const metadataURI = metaResult.cid || metaResult.ipfsUri;
       if (!metadataURI || typeof metadataURI !== "string" || !metadataURI.startsWith("ipfs://")) {
         throw new Error("Metadata upload failed: Backend returned an invalid or missing IPFS URI.");
       }
@@ -328,14 +380,16 @@ document.addEventListener("DOMContentLoaded", async () => {
       let authenticityHash = ethers.ZeroHash;
 
       try {
-        const secRes = await fetch(`${API_BASE}/api/authenticity/generate-secret`);
+        const secRes = await fetch(`${API_BASE}/api/authenticity/generate-secret`, {
+          headers: { Accept: "application/json" },
+        });
         if (secRes.ok) {
           const secData = await secRes.json();
           authenticitySecret = secData.secret;
           authenticityHash = secData.hash;
         }
       } catch (secErr) {
-        console.warn("Could not fetch authenticity secret from backend:", secErr);
+        console.warn("Could not fetch authenticity secret from backend (using ZeroHash fallback):", secErr);
       }
 
       // 4. Submit transaction on-chain via MetaMask (ONLY reached if upload succeeded!)
@@ -380,23 +434,82 @@ document.addEventListener("DOMContentLoaded", async () => {
         ? `/product.html?id=${newProductId}&secret=${authenticitySecret}`
         : `/product.html?id=${newProductId}`;
 
+      const verifyUrl = `https://relife-blockchain-based-digital-pro.vercel.app/verify.html?id=${newProductId || "1"}`;
+      const qrContainerId = `mfgQr_${Date.now()}`;
+
       showStatus(
         "success",
-        `🎉 Product Passport successfully registered on-chain! Product ID: #${newProductId || "Confirmed"}. <br>
-         <div style="margin-top:0.5rem; font-size:0.85rem;">
-           <strong>Authenticity Secret:</strong> Embedded in QR / physical packaging link (never stored on-chain or database).<br>
-           <a href="${passportUrl}" target="_blank" style="color:#10b981; font-weight:bold; text-decoration:underline;">
-             View Passport & Test Authenticity Secret &rarr;
-           </a>
+        `🎉 <strong>Product Passport successfully registered on-chain!</strong> Product ID: #${newProductId || "Confirmed"}. <br>
+         <div style="margin-top: 0.85rem; display: flex; flex-wrap: wrap; gap: 1.25rem; align-items: center; background: rgba(15, 23, 42, 0.75); padding: 1rem; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);">
+           <div id="${qrContainerId}" style="background: white; padding: 6px; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; min-width: 110px; min-height: 110px;"></div>
+           <div style="flex: 1; min-width: 220px;">
+             <div style="font-weight: 600; font-size: 0.95rem; margin-bottom: 0.25rem; color: #f8fafc;">Decentralized Passport QR Code</div>
+             <div style="font-size: 0.8rem; color: #94a3b8; margin-bottom: 0.6rem;">
+               Verification link: <code style="color: #38bdf8;">${verifyUrl}</code>
+             </div>
+             <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+               <button type="button" id="btnDlQr_${qrContainerId}" class="btn btn-outline" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">
+                 &#x1F4BE; Download QR Code (PNG)
+               </button>
+               <a href="${passportUrl}" target="_blank" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.8rem;">
+                 View Passport &rarr;
+               </a>
+             </div>
+           </div>
          </div>`
       );
+
+      // Render QR code dynamically if library is loaded
+      if (typeof QRCode !== "undefined") {
+        setTimeout(() => {
+          const qrElem = document.getElementById(qrContainerId);
+          if (qrElem) {
+            new QRCode(qrElem, {
+              text: verifyUrl,
+              width: 100,
+              height: 100,
+              colorDark: "#0b1120",
+              colorLight: "#ffffff",
+              correctLevel: QRCode.CorrectLevel.H,
+            });
+
+            const dlBtn = document.getElementById(`btnDlQr_${qrContainerId}`);
+            if (dlBtn) {
+              dlBtn.addEventListener("click", () => {
+                const img = qrElem.querySelector("img");
+                if (img && img.src) {
+                  const a = document.createElement("a");
+                  a.download = `ReLife-DPP-QR-#${newProductId || "passport"}.png`;
+                  a.href = img.src;
+                  a.click();
+                } else {
+                  const cvs = qrElem.querySelector("canvas");
+                  if (cvs) {
+                    const a = document.createElement("a");
+                    a.download = `ReLife-DPP-QR-#${newProductId || "passport"}.png`;
+                    a.href = cvs.toDataURL("image/png");
+                    a.click();
+                  }
+                }
+              });
+            }
+          }
+        }, 60);
+      }
 
       // Reset form and reload products table
       productForm.reset();
       await loadManufacturerProducts(userAccount);
     } catch (err) {
-      console.error("Registration error:", err);
-      showStatus("danger", `Registration failed: ${err.reason || err.message}`);
+      console.error("Registration error details:", err);
+      const cleanMsg = (err.reason || err.message || "Unknown error").replace(/^(Registration failed:\s*)+/i, "");
+      showStatus(
+        "danger",
+        `<strong>Registration Failed:</strong> ${cleanMsg}<br>
+         <span style="display:inline-block; margin-top:0.35rem; font-size:0.85rem; color:#fca5a5;">
+           Tip: Check the browser DevTools (F12 &rarr; Network tab &rarr; <code>upload-metadata</code>) to inspect the exact status and backend response.
+         </span>`
+      );
     } finally {
       submitBtn.disabled = false;
       submitSpinner.style.display = "none";

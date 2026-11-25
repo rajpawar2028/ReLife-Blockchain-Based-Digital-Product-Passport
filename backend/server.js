@@ -177,6 +177,7 @@ app.get("/api/health", (req, res) => {
   res.status(200).json({
     ok: true,
     status: "healthy",
+    state: "ok",
     service: "ReLife IPFS Backend API",
     version: "1.0.0",
     pinataConfigured: pinataService.isConfigured(),
@@ -188,11 +189,44 @@ app.get("/health", (req, res) => {
   res.status(200).json({
     ok: true,
     status: "healthy",
+    state: "ok",
     service: "ReLife IPFS Backend API",
     version: "1.0.0",
     pinataConfigured: pinataService.isConfigured(),
     timestamp: new Date().toISOString(),
   });
+});
+
+// Upload product metadata JSON to IPFS (per project specification: returns { cid: "ipfs://<CID>" })
+app.post("/api/upload", uploadLimiter, async (req, res) => {
+  try {
+    const metadata = req.body;
+    if (!metadata || (typeof metadata === "object" && Object.keys(metadata).length === 0)) {
+      return res.status(400).json({ success: false, error: "Missing metadata JSON payload in request body" });
+    }
+
+    const customName = metadata.name ? `DPP-${metadata.serialNumber || Date.now()}-${metadata.name}` : "ReLife-Product-Passport";
+    const pinResult = await pinataService.pinJSONToIPFS(metadata, customName);
+
+    const formattedCid = pinResult.ipfsUri || (pinResult.cid ? `ipfs://${pinResult.cid}` : "");
+
+    return res.status(200).json({
+      success: true,
+      status: "ok",
+      cid: formattedCid,
+      ipfsUri: formattedCid,
+      gatewayUrl: pinResult.gatewayUrl,
+      isMock: pinResult.isMock,
+      timestamp: pinResult.timestamp,
+    });
+  } catch (err) {
+    console.error("[Backend /api/upload Error]:", err);
+    return res.status(502).json({
+      success: false,
+      error: "Failed to upload metadata to IPFS",
+      details: err.message,
+    });
+  }
 });
 
 // Serve frontend static files
