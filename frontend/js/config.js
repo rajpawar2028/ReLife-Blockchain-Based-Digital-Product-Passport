@@ -2,7 +2,7 @@
  * ReLife - Global Application Configuration
  * Centralized environment parameters for Ethereum Sepolia and Render IPFS API
  */
-const API_BASE_URL = 'https://relife-blockchain-backend.onrender.com';
+const API_BASE_URL = 'https://relife-blockchain-based-digital-product.onrender.com';
 const CHAIN_ID = 11155111;
 
 // Expose globally for browser multi-page scripts

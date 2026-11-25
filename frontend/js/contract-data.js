@@ -4,7 +4,7 @@
   const chainId = 11155111;
   const apiBase = (typeof window !== "undefined" && window.API_BASE_URL)
     ? window.API_BASE_URL
-    : "https://relife-blockchain-backend.onrender.com";
+    : "https://relife-blockchain-based-digital-product.onrender.com";
 
   window.RELIFE_CONFIG = {
     network: "sepolia",
