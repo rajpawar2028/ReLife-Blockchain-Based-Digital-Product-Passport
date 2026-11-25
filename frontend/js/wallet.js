@@ -252,20 +252,22 @@ const ReLifeWallet = {
    * Connects to the deployed ReLife contract using contract-data.js configuration.
    */
   async _attachContract() {
-    if (!window.RELIFE_CONFIG || !window.RELIFE_CONFIG.address || !window.RELIFE_CONFIG.abi) {
+    const contractAddr = window.RELIFE_CONFIG?.contractAddress || window.RELIFE_CONFIG?.address;
+    if (!window.RELIFE_CONFIG || !contractAddr || !window.RELIFE_CONFIG.abi) {
       console.error("RELIFE_CONFIG missing. Make sure contract-data.js is loaded.");
+      this.showToast("Configuration Error: RELIFE_CONFIG missing. Make sure contract-data.js is loaded.", "danger");
       return;
     }
 
     if (this.signer) {
       this.contract = new ethers.Contract(
-        window.RELIFE_CONFIG.address,
+        contractAddr,
         window.RELIFE_CONFIG.abi,
         this.signer
       );
     } else if (this.provider) {
       this.contract = new ethers.Contract(
-        window.RELIFE_CONFIG.address,
+        contractAddr,
         window.RELIFE_CONFIG.abi,
         this.provider
       );
@@ -304,10 +306,14 @@ const ReLifeWallet = {
    * Gets a read-only instance of the contract (works even if wallet is disconnected or MetaMask RPC is slow).
    */
   getReadOnlyContract() {
-    if (!window.RELIFE_CONFIG) return null;
+    const contractAddr = window.RELIFE_CONFIG?.contractAddress || window.RELIFE_CONFIG?.address;
+    if (!window.RELIFE_CONFIG || !contractAddr || !window.RELIFE_CONFIG.abi) {
+      this.showToast("Configuration Error: RELIFE_CONFIG missing. Make sure contract-data.js is loaded.", "danger");
+      return null;
+    }
     const readProvider = this.getReadOnlyProvider();
     return new ethers.Contract(
-      window.RELIFE_CONFIG.address,
+      contractAddr,
       window.RELIFE_CONFIG.abi,
       readProvider
     );

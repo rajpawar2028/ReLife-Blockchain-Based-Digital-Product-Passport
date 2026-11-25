@@ -38,6 +38,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   let userAccount = null;
   let isManufacturer = false;
 
+  // Disable register button by default until contract is attached
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.innerText = "Connecting to contract...";
+  }
+
   // 1. Attach Connect button click handler immediately (so it is never blocked)
   if (connectBtn) {
     connectBtn.addEventListener("click", async () => {
@@ -130,6 +136,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (unauthorizedAlert) unauthorizedAlert.style.display = "none";
       if (wrongNetworkAlert) wrongNetworkAlert.style.display = "none";
       if (registrationCard) registrationCard.style.display = "none";
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerText = "Connecting to contract...";
+      }
       return;
     }
 
@@ -142,11 +152,12 @@ document.addEventListener("DOMContentLoaded", async () => {
     const chainId = ReLifeWallet.getNormalizedChainId();
     const isCorrectNetwork = ReLifeWallet.isCorrectNetwork;
 
+    const contractAddr = window.RELIFE_CONFIG?.contractAddress || window.RELIFE_CONFIG?.address;
     let hasBytecode = true;
     const provider = ReLifeWallet.provider || (window.ethereum ? new ethers.BrowserProvider(window.ethereum) : null);
-    if (provider && window.RELIFE_CONFIG?.address) {
+    if (provider && contractAddr) {
       try {
-        const code = await provider.getCode(window.RELIFE_CONFIG.address);
+        const code = await provider.getCode(contractAddr);
         if (code === "0x" || code === "0x0") hasBytecode = false;
       } catch (_) {}
     }
@@ -155,6 +166,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (authSection) authSection.style.display = "none";
       if (unauthorizedAlert) unauthorizedAlert.style.display = "none";
       if (registrationCard) registrationCard.style.display = "none";
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerText = "Connecting to contract...";
+      }
       if (wrongNetworkAlert) {
         wrongNetworkAlert.style.display = "block";
         if (currentNetworkName) {
@@ -165,14 +180,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
     if (wrongNetworkAlert) wrongNetworkAlert.style.display = "none";
 
+    // Ensure contract is attached before calling any contract functions
+    if (!ReLifeWallet.contract && typeof ReLifeWallet._attachContract === "function") {
+      try {
+        await ReLifeWallet._attachContract();
+      } catch (_) {}
+    }
+
+    const contract = ReLifeWallet.contract || ReLifeWallet.getReadOnlyContract();
+    if (!contract) {
+      console.warn("Contract not attached yet.");
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerText = "Connecting to contract...";
+      }
+      return;
+    }
+
     // Check MANUFACTURER_ROLE on-chain
     try {
-      const contract = ReLifeWallet.contract || ReLifeWallet.getReadOnlyContract();
-      if (!contract) {
-        console.warn("Contract not attached yet.");
-        return;
-      }
-
       const roleHash = await contract.MANUFACTURER_ROLE();
       isManufacturer = await contract.hasRole(roleHash, userAccount);
 
@@ -181,9 +207,22 @@ document.addEventListener("DOMContentLoaded", async () => {
         if (authSection) authSection.style.display = "none";
         if (unauthorizedAlert) unauthorizedAlert.style.display = "none";
         if (registrationCard) registrationCard.style.display = "block";
+        if (submitBtn) {
+          if (ReLifeWallet.contract) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<span id="submitSpinner" class="spinner" style="display: none;"></span> Mint Product Passport';
+          } else {
+            submitBtn.disabled = true;
+            submitBtn.innerText = "Connecting to contract...";
+          }
+        }
         await loadManufacturerProducts(userAccount);
       } else {
         // State 3: Connected but Unauthorized
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.innerText = "Connecting to contract...";
+        }
         if (authSection) authSection.style.display = "none";
         if (registrationCard) registrationCard.style.display = "none";
         if (unauthorizedAlert) {
@@ -196,6 +235,10 @@ document.addEventListener("DOMContentLoaded", async () => {
       }
     } catch (err) {
       console.error("Role verification failed:", err);
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerText = "Connecting to contract...";
+      }
       showStatus("danger", "Failed to verify manufacturer role on-chain: " + (err.reason || err.message));
     }
   }
@@ -206,7 +249,12 @@ document.addEventListener("DOMContentLoaded", async () => {
   productForm.addEventListener("submit", async (e) => {
     e.preventDefault();
 
-    if (!isManufacturer || !ReLifeWallet.contract) {
+    if (!ReLifeWallet.contract) {
+      alert("Contract not attached yet. Please wait for connection to complete.");
+      return;
+    }
+
+    if (!isManufacturer) {
       alert("Only an authorized manufacturer wallet can register products.");
       return;
     }
@@ -430,6 +478,23 @@ document.addEventListener("DOMContentLoaded", async () => {
         } catch (_) {}
       }
 
+      // If registered using fallback registerProduct (without inline warranty) and warrantyMonths > 0, call addWarranty
+      if (!contract.registerProductWithWarranty && Number(warrantyMonths) > 0 && newProductId) {
+        try {
+          showStatus("info", "Attaching warranty on-chain...");
+          const expiryTimestamp = BigInt(Math.floor(Date.now() / 1000) + (warrantyMonths * 30 * 24 * 3600));
+          if (typeof contract.addWarranty === "function") {
+            const wTx = await contract.addWarranty(BigInt(newProductId), expiryTimestamp, warrantyCoverage || "Standard Warranty", metadataURI);
+            await wTx.wait(1);
+          } else if (typeof contract.addWarrantyMonths === "function") {
+            const wTx = await contract.addWarrantyMonths(BigInt(newProductId), BigInt(warrantyMonths), warrantyCoverage || "Standard Warranty", metadataURI);
+            await wTx.wait(1);
+          }
+        } catch (wErr) {
+          console.warn("Post-registration warranty call notice:", wErr);
+        }
+      }
+
       const passportUrl = authenticitySecret
         ? `/product.html?id=${newProductId}&secret=${authenticitySecret}`
         : `/product.html?id=${newProductId}`;
@@ -511,8 +576,18 @@ document.addEventListener("DOMContentLoaded", async () => {
          </span>`
       );
     } finally {
-      submitBtn.disabled = false;
-      submitSpinner.style.display = "none";
+      if (submitBtn) {
+        if (ReLifeWallet.contract && isManufacturer) {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<span id="submitSpinner" class="spinner" style="display: none;"></span> Mint Product Passport';
+        } else {
+          submitBtn.disabled = true;
+          submitBtn.innerText = "Connecting to contract...";
+        }
+      }
+      if (submitSpinner) {
+        submitSpinner.style.display = "none";
+      }
     }
   });
 
@@ -532,7 +607,10 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (!manufacturerAddress) return;
     try {
       const contract = ReLifeWallet.contract || ReLifeWallet.getReadOnlyContract();
-      if (!contract) return;
+      if (!contract) {
+        console.warn("Contract not attached yet.");
+        return;
+      }
 
       if (tableLoadingSpinner) tableLoadingSpinner.style.display = "inline";
 

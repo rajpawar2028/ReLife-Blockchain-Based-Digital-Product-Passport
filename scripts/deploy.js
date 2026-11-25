@@ -91,7 +91,9 @@ async function main() {
 window.RELIFE_CONFIG = ${JSON.stringify(contractData, null, 2)};
 `;
     fs.writeFileSync(frontendJsPath, jsContent);
-    console.log(`Saved browser script to: ${frontendJsPath}`);
+    const frontendJsInJsDir = path.join(frontendDir, "js", "contract-data.js");
+    fs.writeFileSync(frontendJsInJsDir, jsContent);
+    console.log(`Saved browser script to: ${frontendJsPath} and ${frontendJsInJsDir}`);
 
     // 3. Write backend/contract-data.json
     const backendJsonPath = path.join(backendDir, "contract-data.json");

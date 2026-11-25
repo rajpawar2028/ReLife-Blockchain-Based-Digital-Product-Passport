@@ -1,32 +1,21 @@
-// Auto-generated configuration with Render backend URL integration
-/**
- * --------------------------------------------------------------------------
- * RENDER BACKEND CONFIGURATION
- * --------------------------------------------------------------------------
- * Paste your deployed Render Web Service URL below (e.g. "https://your-backend.onrender.com").
- * - In production (e.g. Vercel), the frontend calls this Render backend URL.
- * - On localhost / 127.0.0.1, the frontend automatically routes to http://localhost:5000.
- */
-const RENDER_BACKEND_URL = "https://relife-blockchain-backend.onrender.com"; // <-- PASTE YOUR RENDER URL HERE
+// Auto-generated configuration for ReLife Smart Contract
+(function () {
+  const contractAddress = "0x9600044e058A7492F0121b34E0bbe4cBFD707149";
+  const chainId = 11155111;
+  const apiBase = (typeof window !== "undefined" && window.API_BASE_URL)
+    ? window.API_BASE_URL
+    : "https://relife-blockchain-backend.onrender.com";
 
-const isLocalhostHost = typeof window !== "undefined" && window.location &&
-  (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-
-const API_BASE_URL = isLocalhostHost
-  ? (window.location.origin.includes("5000") ? window.location.origin : "http://localhost:5000")
-  : (RENDER_BACKEND_URL || "http://localhost:5000");
-
-window.API_BASE_URL = API_BASE_URL;
-
-window.RELIFE_CONFIG = {
-  "network": "sepolia",
-  "chainId": 11155111,
-  "address": "0x9600044e058A7492F0121b34E0bbe4cBFD707149",
-  "deployer": "0xd75dC45aEDDa24Bc3d3e92B03D75b828f473530E",
-  "deployedAt": "2026-11-19T16:05:03.545Z",
-  "deploymentBlock": 12169456,
-  "apiBase": API_BASE_URL,
-  "abi": [
+  window.RELIFE_CONFIG = {
+    network: "sepolia",
+    chainId: chainId,
+    address: contractAddress,
+    contractAddress: contractAddress,
+    deployer: "0xd75dC45aEDDa24Bc3d3e92B03D75b828f473530E",
+    deployedAt: "2026-11-19T16:05:03.545Z",
+    deploymentBlock: 12169456,
+    apiBase: apiBase,
+    abi: [
     {
       "inputs": [],
       "stateMutability": "nonpayable",
@@ -2596,3 +2585,4 @@ window.RELIFE_CONFIG = {
     }
   ]
 };
+})();
